@@ -95,5 +95,14 @@
 
   "ZHUANGTANG_STUN_POWER.title": "装唐眩晕",
   "ZHUANGTANG_STUN_POWER.description": "下回合开始时，[gold]击晕[/gold]所有敌人。",
-  "ZHUANGTANG_STUN_POWER.smartDescription": "下回合开始时，[gold]击晕[/gold]所有敌人。"
+  "ZHUANGTANG_STUN_POWER.smartDescription": "下回合开始时，[gold]击晕[/gold]所有敌人。",
+
+  "BAOQU_DEATH_MERCY_POWER.title": "豹区死亡豁免",
+  "BAOQU_DEATH_MERCY_POWER.description": "豹区战斗中，即将死亡时回复满血并询问是否接受死亡。",
+  "BAOQU_DEATH_MERCY_POWER.smartDescription": "豹区战斗中，即将死亡时回复满血并询问是否接受死亡。",
+
+  "BAOQU_DEATH_ASK.title": "是否接受死亡？",
+  "BAOQU_DEATH_ASK.body": "你已穷途末路。是否接受死亡？\n若选择“否”，将返回主菜单，可重新挑战豹区。",
+  "BAOQU_DEATH_ASK.yes": "是（接受死亡）",
+  "BAOQU_DEATH_ASK.no": "否（回到主菜单）"
 }

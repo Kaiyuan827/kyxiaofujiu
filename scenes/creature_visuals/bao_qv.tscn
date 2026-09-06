@@ -27,7 +27,7 @@ metadata/_edit_use_anchors_ = true
 
 [node name="IntentPos" type="Marker2D" parent="."]
 unique_name_in_owner = true
-position = Vector2(206, -152)
+position = Vector2(206, -427)
 
 [node name="CenterPos" type="Marker2D" parent="."]
 unique_name_in_owner = true

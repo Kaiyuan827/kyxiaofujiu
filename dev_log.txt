@@ -2405,3 +2405,21 @@ Postfix 补丁 DialogueSet getter，向 CharacterDialogues 注入 AncientDialogu
   但 mod 场景实例化后这俩节点因根场景类型解析失败变 Godot.Control（Godot 用占位符替代），强转抛异常，
   _Ready 中断，每场刷一条红色报错。改 XiaofujiuEnergyCounter._Ready() try/catch 降级：数字/旋转/工资正常，
   仅能量爆闪 VFX 与悬停气泡不可用。若要恢复 VFX 需修 xiaofujiu_energy_counter.tscn 节点类型（本文档后续跟进）。
+
+=== 补充120 豹区Boss战濒死豁免弹窗 ===
+- 需求：BOSS战"豹区"（BaoQu，白区三层Boss）中，玩家即将被打死时回复满血，
+  弹窗"是否接受死亡？"；选"是"→对自己造成满血伤害真正死亡；选"否"→回主菜单（读档重来，再进可重新打豹区）。
+- 实现（src/powers/BaoQuDeathMercyPower.cs + src/patches/BaoQuDeathMercyPatch.cs）：
+  1. 参考游戏原版 FairyInABottle/LizardTail 死亡预防机制：Power 重写 ShouldDie 对 Owner 玩家返回 false 阻止死亡，
+     Kill 流程会转入 AfterPreventingDeath 分支（本次死亡被 preventer 拦下）。
+  2. 隐藏 Power（IsVisibleInternal=false 不显示图标），patch CombatManager.SetUpCombat Postfix：
+     敌方含 BaoQu 时给每位玩家 PowerCmd.Apply 该能力（已有则跳过）。
+  3. AfterPreventingDeath：①设 _allowRealDeath=true（后续濒死不再拦，防无限循环/递归）；
+     ②玩家血不足则 Heal 回满血（防 Kill 因 IsDead 递归）；③弹窗等待玩家选择。
+  4. 弹窗用 NGenericPopup.Create() + NModalContainer.Instance.Add + WaitForConfirmation（返回 Task<bool>，
+     generic_popup 场景即使未预载 AssetCache 也会自动加载；弹窗失败 try/catch 兜底按"接受死亡"处理）。
+  5. ⚠️ 不能在 AfterPreventingDeath（Kill 递归链内）直接自杀/切场景——会造成 Kill 多层递归。
+     改为 TaskHelper.RunSafely 起独立任务：选"是"→对玩家造成满血伤害（走正常死亡 GameOver）；
+     选"否"→NGame.Instance.ReturnToMainMenu()（等同暂停菜单保存并退出）。
+- 本地化键（powers.json）：BAOQU_DEATH_MERCY_POWER.title/.description + BAOQU_DEATH_ASK.title/.body/.yes/.no。
+- 意图位置：bao_qv.tscn 与 di_fang_she_hua.tscn 的 IntentPos 上调到头顶（豹区 y-152→-427，敌方蛇花 y-152→-340）。

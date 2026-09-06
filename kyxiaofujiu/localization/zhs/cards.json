@@ -104,7 +104,7 @@
   "JIABAN.title": "加班",
   "JIABAN.description": "获得{Salary:diff()}[gold]工资[/gold]。\n获得2层[gold]虚弱[/gold]。",
   "YAYIXINGTAI.title": "压抑形态",
-  "YAYIXINGTAI.description": "当你[gold]征婚[/gold]时，同时[gold]征婚[/gold]等量数值。",
+  "YAYIXINGTAI.description": "当你[gold]征婚[/gold]时，额外[gold]征婚[/gold]等量数值。",
   "XIAOFUJIUSHILIANSHENG.title": "晓夫九十连胜",
   "XIAOFUJIUSHILIANSHENG.description": "每回合第一次受到低于{Threshold:diff()}点的伤害时，将伤害降低为0。",
   "NIZENMEHAIZAIZHE.title": "你怎么还在这",
