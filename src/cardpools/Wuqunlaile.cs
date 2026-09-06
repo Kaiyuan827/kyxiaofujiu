@@ -44,6 +44,10 @@ namespace kyxiaofujiu.cardpools
 			}
 		}
 
+		// 满足“手牌数=10”可打出条件时卡牌边缘闪金光。
+		// 参考 mod 辉卡九、官方华丽收场/契约终结：ShouldGlowGoldInternal => IsPlayable
+		protected override bool ShouldGlowGoldInternal => IsPlayable;
+
 		protected override async Task OnPlay(PlayerChoiceContext choiceContext, CardPlay cardPlay)
 		{
 			// 将一张手牌（夫黑/夫白）转化为夫黄
