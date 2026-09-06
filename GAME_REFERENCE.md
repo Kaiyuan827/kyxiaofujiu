@@ -2,7 +2,7 @@
 
 > 自动生成于 2025-06-29  
 > 游戏引擎: Godot 4.5.1 (MegaDot 定制版 C#)  
-> 游戏源码位置: `E:\sts2\src\`
+> 游戏源码位置: `$STS2_SRC`（各机器本地设置，勿写死绝对路径）
 
 ---
 
@@ -11,7 +11,7 @@
 ### 核心目录结构
 
 ```
-E:\sts2\
+$STS2_SRC/
 ├── src/
 │   ├── Core/
 │   │   ├── Models/          ← 数据模型层（CardModel, RelicModel, PowerModel, CharacterModel, 各种 Pool）
@@ -172,9 +172,7 @@ protected override async Task OnPlay(PlayerChoiceContext choiceContext, CardPlay
 		.Execute(choiceContext);
 	
 	// 获得格挡
-	await BlockCmd.Gain(DynamicVars.Block.BaseValue)
-		.FromCard(this)
-		.Execute(choiceContext);
+	await CreatureCmd.GainBlock(base.Owner.Creature, base.DynamicVars.Block, cardPlay);
 	
 	// 施加能力
 	await PowerCmd.Apply<DagongPower>(choiceContext, Owner.Creature, 1m, Owner.Creature, this);
@@ -346,11 +344,9 @@ await DamageCmd.HpLoss(amount)
 	.Execute(choiceContext);
 ```
 
-### 6.2 BlockCmd — 格挡
+### 6.2 CreatureCmd.GainBlock — 格挡
 ```csharp
-await BlockCmd.Gain(amount)
-	.FromCard(this)
-	.Execute(choiceContext);
+await CreatureCmd.GainBlock(base.Owner.Creature, amount, cardPlay);
 ```
 
 ### 6.3 PowerCmd — 能力
@@ -482,7 +478,7 @@ public static class EpochGetPatch
 
 ## 八、你的模组结构 (kyxiaofujiu)
 
-### 当前位置: `E:\mymod\kyxiaofujiu\`
+### 当前位置: 本仓库（kyxiaofujiu），路径因机器而异，勿写死
 
 ```
 kyxiaofujiu/
@@ -1398,7 +1394,7 @@ model.AssertCanonical();     // 确保是原型实例
 
 ---
 
-*此文档供 Agent 和开发者参考，基于对 STS2 (v2026) 源码 `E:\sts2\src` 的全面分析生成。*  
+*此文档供 Agent 和开发者参考，基于对 STS2 源码（路径 `$STS2_SRC`，因机器而异）分析生成。*  
 *最后更新: 2026-07-19*
 6. `TokenCardPool.GenerateAllCards` — 注入 Jiaban 状态卡
 7. `EpochModel.Get` — 注入 3 个自定义纪元
@@ -1464,10 +1460,10 @@ using Harmonylib;                            // Harmony Patch
 3. 如果是全新的内容类型（新角色/新卡池），确认 Harmony Patch 已注册
 4. 编译 DLL: dotnet build → kyxiaofujiu.dll
 5. 更新 .pck（如果有新的 Godot 资源）
-6. 复制 DLL/PCK 到 E:\sts2\mods\
+6. 复制 DLL/PCK 到游戏 mods 目录（路径因机器而异）
 7. 重启游戏测试
 ```
 
 ---
 
-*此文档供 Agent 和开发者参考，基于反编译的 STS2 v2026 源码。*
+*此文档供 Agent 和开发者参考，基于反编译的 STS2 源码。*
