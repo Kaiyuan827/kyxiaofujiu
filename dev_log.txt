@@ -2389,3 +2389,19 @@ Postfix 补丁 DialogueSet getter，向 CharacterDialogues 注入 AncientDialogu
 - ② 夫的女儿: 卡 BlockVar Move → Unpowered(与FudenverPower实际发放的Unpowered一致, 修复卡面显示被敏捷放大但实际不吃的"骗人")
 - ③ 夫的女儿时机: AfterSideTurnEnd(灼伤之后) → BeforeSideTurnEndEarly(灼伤等回合结束手牌结算之前, 对齐金属化PlatingPower), 格挡先到手能挡灼伤; GainBlock 改纯 Unpowered
 - ④ 夫黄SC语音: SetUpCombat 立即播→ 延迟1秒(SpeakDelayed async, 敌死/无vfx静默跳过), 避免被战斗开场盖住
+
+
+=== 补充119 无视SC满手卡死 + 能量计数器 VFX 强转异常 ===
+- ① 无视SC（Wushisc）手牌满/弃牌堆恰1张时打出卡在画面顶部：
+  CardSelectCmd.FromCombatPile 在 (prompt,1)（RequireManualConfirmation=false）+ 弃牌堆恰 1 张时，
+  走点卡即取快捷路径，返回弃牌堆内部 List(pile.Cards) 而非副本；OnPlay foreach 里
+  CardPileCmd.Add(card, Hand) 回手会把该牌从同一 List 移除 → 迭代期间改集合，
+  抛 InvalidOperationException: Collection was modified → OnPlay 中断 → 牌卡在打出牌位。
+  手牌满时弃牌堆常只剩 1 张，因此满手最容易复现。修复：对 FromCombatPile 返回值先 ToList() 快照。
+  教训：凡对 FromCombatPile 结果 foreach 且循环内要移动该牌的，务必先 ToList()。
+  根因是 99d6e5e 把 (0,1) 改成 (1,1)（关掉手动确认）后，恰 1 张时不再返回副本。
+- ② 能量计数器（XiaofujiuEnergyCounter）进战斗必报 InvalidCastException：
+  游戏基类 NEnergyCounter._Ready() 把 %EnergyVfxBack/%EnergyVfxFront 强转 NParticlesContainer，
+  但 mod 场景实例化后这俩节点因根场景类型解析失败变 Godot.Control（Godot 用占位符替代），强转抛异常，
+  _Ready 中断，每场刷一条红色报错。改 XiaofujiuEnergyCounter._Ready() try/catch 降级：数字/旋转/工资正常，
+  仅能量爆闪 VFX 与悬停气泡不可用。若要恢复 VFX 需修 xiaofujiu_energy_counter.tscn 节点类型（本文档后续跟进）。
