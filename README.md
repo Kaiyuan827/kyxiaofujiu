@@ -50,7 +50,11 @@ dotnet build
 - 编译出的 `kyxiaofujiu.dll`
 - Godot 导出的资源包 `*.pck`
 
-两者缺一或版本不一致，改动在游戏内不会生效（常被误以为代码没改）。开发机上的 `E:\SteamLibrary\...\Slay the Spire 2\mods` 目录由 `.csproj` 的 `AfterBuild` 目标自动复制 DLL，PCK 需手动导出管理。
+两者缺一或版本不一致，改动在游戏内不会生效（常被误以为代码没改）。
+
+`.csproj` 不硬编码任何机器路径：默认只把 DLL 输出到 `build\`。要“编译即部署到游戏 mods 目录”，用 MSBuild 属性 `Sts2ModsDir` 指定（优先级从高到低：`dotnet build -p:Sts2ModsDir="..."` > 项目根目录被 `.gitignore` 忽略的 `Directory.Build.props` > 环境变量 `STS2_MODS_DIR`）。
+
+更省事的方式：运行仓库上级目录的 `build_kyxiaofujiu.ps1`，一次性完成 `dotnet build` → Godot 导出 `*.pck` → 写入 `manifest.json` → 部署到本机游戏 `mods\kyxiaofujiu\`。脚本在仓库外，各开发者自行维护本机的 mods 路径与版本号。
 
 ## 贡献
 
