@@ -26,3 +26,20 @@ import_diff.txt
 
 # 注意：保留 .import 与 .uid（Godot 导入配置/UID 需要提交）
 
+# ===== 操作系统杂项 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== IDE / 编辑器 =====
+.idea/
+*.iml
+.vscode/
+Rider/
+
+# ===== 本地开发环境 / 临时打包 =====
+*.zip
+.venv/
+
+# 注意：libs/*.dll 是本地 mod 引用库（0Harmony.dll / sts2.dll），不随仓库提交。
+#       克隆后需自行从本地游戏获取放入 libs/ 才能构建，详见 README“构建前置”。
