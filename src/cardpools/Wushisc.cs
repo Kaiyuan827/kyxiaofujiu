@@ -42,15 +42,23 @@ namespace kyxiaofujiu.cardpools
 			var discard = PileType.Discard.GetPile(Owner);
 			if (discard != null && discard.Cards.Count > 0)
 			{
-				var selected = await CardSelectCmd.FromCombatPile(
-					choiceContext,
-					discard,
-					Owner,
-					// 固定选1张且无需手动确认：点击卡牌即完成选择。
-					// 避免像（0,1）那样还需额外点一次“确定”（官方涅奥之怒的实现），
-					// 对齐官方宇宙冷漠的“点卡即取”体验。
-					new CardSelectorPrefs(new LocString("cards", "WUSHISC.selectPrompt"), 1),
-					null);
+				// 关键坑：CardSelectCmd.FromCombatPile 在“弃牌堆恰有 1 张 + 无需手动确认(1,1)”时，
+				// 走点卡即取的快捷路径，会把弃牌堆的内部 List（pile.Cards）直接作为返回值，而非副本。
+				// 若直接 foreach 它，并在循环里 CardPileCmd.Add(card, PileType.Hand) 回手（会从弃牌堆移除该牌），
+				// 就在迭代期间修改了同一个 List，抛 InvalidOperationException: Collection was modified，
+				// OnPlay 异常中断，导致整张牌卡在打出牌位（画面顶部）。
+				// 修复：先 ToList() 拍成快照再遍历，迭代期间改弃牌堆不再影响枚举。
+				// （手牌满时弃牌堆常只剩 1 张，因此更容易复现。）
+				var selected = (await CardSelectCmd.FromCombatPile(
+						choiceContext,
+						discard,
+						Owner,
+						// 固定选1张且无需手动确认：点击卡牌即完成选择。
+						// 避免像（0,1）那样还需额外点一次“确定”（官方涅奥之怒的实现），
+						// 对齐官方宇宙冷漠的“点卡即取”体验。
+						new CardSelectorPrefs(new LocString("cards", "WUSHISC.selectPrompt"), 1),
+						null))
+					.ToList();
 
 				foreach (var card in selected)
 				{
