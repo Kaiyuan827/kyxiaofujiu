@@ -46,7 +46,10 @@ namespace kyxiaofujiu.cardpools
 					choiceContext,
 					discard,
 					Owner,
-					new CardSelectorPrefs(new LocString("cards", "WUSHISC.selectPrompt"), 0, 1),
+					// 固定选1张且无需手动确认：点击卡牌即完成选择。
+					// 避免像（0,1）那样还需额外点一次“确定”（官方涅奥之怒的实现），
+					// 对齐官方宇宙冷漠的“点卡即取”体验。
+					new CardSelectorPrefs(new LocString("cards", "WUSHISC.selectPrompt"), 1),
 					null);
 
 				foreach (var card in selected)
