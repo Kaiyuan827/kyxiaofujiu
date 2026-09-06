@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://dt14luwusxnb5"]
+
+[ext_resource type="Script" uid="uid://c44s23hskvs8t" path="res://src/CustomMerchantVisuals.cs" id="1_2gird"]
+[ext_resource type="Texture2D" uid="uid://uydpeotrgcu6" path="res://scenes/creature_visuals/xiaofujiu.png" id="2_7rh6s"]
+
+[node name="IroncladMerchant" type="Node2D"]
+script = ExtResource("1_2gird")
+
+[node name="Node2D" type="Node2D" parent="."]
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D"]
+position = Vector2(-22.000008, -3.0000305)
+scale = Vector2(0.3414063, 0.34095064)
+texture = ExtResource("2_7rh6s")

@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://bhla8y5na84ji"]
+
+[ext_resource type="Texture2D" uid="uid://cj8f3gnwl1lk1" path="res://images/packed/card_portraints/xiaofujiu/defendxiaofujiu.png" id="1_xs3xw"]
+
+[resource]
+atlas = ExtResource("1_xs3xw")
+region = Rect2(0, 0, 2211.728, 1783.6769)

@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://dm6e03pi74fry"]
+
+[ext_resource type="Texture2D" path="res://images/atlases/relic_atlas.sprites/ka_relic.png" id="1_xak6o"]
+
+[resource]
+atlas = ExtResource("1_xak6o")
+region = Rect2(7, 0, 114, 128)

@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://bwfrogjnoqdkp"]
+
+[ext_resource type="Texture2D" uid="uid://c1xvhfm47vkyi" path="res://images/packed/card_portraints/xiaofujiu/changkao.png" id="1_ldq0m"]
+
+[resource]
+atlas = ExtResource("1_ldq0m")
+region = Rect2(0, 81.957, 2214, 1811.043)

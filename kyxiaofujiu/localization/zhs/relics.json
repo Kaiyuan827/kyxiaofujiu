@@ -1,0 +1,56 @@
+{
+  "MY_CUSTOM_RELIC.title": "尖塔糕手",
+  "MY_CUSTOM_RELIC.description": "[gold]完美格挡[/gold]累计[blue]5[/blue]次后，变化为强力遗物[gold]尖塔高手[/gold]。",
+  "MY_CUSTOM_RELIC.flavor": "关注晓夫九，遗物自动卡九。",
+
+  "SPIRE_EXPERT.title": "尖塔高手",
+  "SPIRE_EXPERT.description": "每场战斗开始时，获得[blue]1[/blue]层[gold]缓冲[/gold]。",
+  "SPIRE_EXPERT.flavor": "关注晓夫九，成为尖塔高手。",
+
+  "KA_JIU_RELIC.title": "卡九",
+  "KA_JIU_RELIC.description": "每[blue]10[/blue]个回合，获得{energyPrefix:energyIcons(1)}并抽[blue]1[/blue]张牌。\n每当你[gold]转化[/gold]时，该遗物计数+[blue]1[/blue]（最高为[blue]9[/blue]）。",
+  "KA_JIU_RELIC.flavor": "征婚卡九，越征越有。",
+
+  "XIANGLULE_RELIC.title": "我香炉了",
+  "XIANGLULE_RELIC.description": "每[blue]6[/blue]个回合，获得{energyPrefix:energyIcons(1)}并抽[blue]1[/blue]张牌。每当你[gold]转化[/gold]时，该遗物计数+[blue]1[/blue]（最高为[blue]5[/blue]）。",
+  "XIANGLULE_RELIC.flavor": "史莱姆卡3，六火蹲起卡4，收藏家卡1，铜人卡0，冠军不用卡，觉醒老头甜八卡3或4，矛盾心脏必须卡4……",
+
+  "WEDDING_RING.title": "婚戒",
+  "WEDDING_RING.description": "[gold]征婚[/gold]累计[blue]50[/blue]后，变化为强力遗物[gold]征婚戒指[/gold]。",
+  "WEDDING_RING.flavor": "“30岁了还能征到婚吗？”",
+
+  "PROPOSAL_RING.title": "征婚戒指",
+  "PROPOSAL_RING.description": "每场战斗开始时，获得[blue]10[/blue]点[gold]格挡[/gold]，[gold]征婚[/gold][blue]3[/blue]。",
+  "PROPOSAL_RING.flavor": "“你是技术主播吗？”“我觉得我是。”",
+
+  "KA_RELIC.title": "卡遗物",
+  "KA_RELIC.description": "每[blue]4[/blue]个回合，[pink]产生开腔的欲望[/pink]。\n战斗结束时，若该遗物计数为[blue]3[/blue]，[gold]进度[/gold]+[blue]1[/blue]。[gold]进度[/gold]达到[blue]5[/blue]时，变化为强力遗物[gold]卡好了[/gold]。",
+  "KA_RELIC.flavor": "你能防住么？能防住的话……",
+  "KA_RELIC.progressDesc": "当前[gold]进度[/gold]：[blue]{Current}[/blue]/{Total}",
+
+  "KA_HAO_LE.title": "卡好了",
+  "KA_HAO_LE.description": "每场战斗开始时，抽[blue]1[/blue]张牌并获得{energyPrefix:energyIcons(1)}，你打出的第一张攻击牌会造成双倍伤害。",
+  "KA_HAO_LE.flavor": "这回合没攻击牌了？",
+
+  "LUCKY_LANDLORD_RELIC.title": "幸运房东",
+  "LUCKY_LANDLORD_RELIC.description": "战斗结束时，获得[blue]100[/blue][gold]工资[/gold]。\n每[blue]4[/blue]场战斗，房东会进行一次[gold]收租[/gold]，你需要支付房租和欠款。[green]付得起有奖励[/green]，[red]付不起有惩罚~[/red]",
+  "LUCKY_LANDLORD_RELIC.progressDesc": "当前[gold]工资[/gold]：[blue]{Salary}[/blue]。\n下次房租：[blue]{Rent}[/blue]。\n累计欠款：[blue]{Arrears}[/blue]。\n距下次收租还有[blue]{Countdown}[/blue]场战斗。\n上一轮奖励：[blue]{LastReward}[/blue]。",
+  "LUCKY_LANDLORD_RELIC.spinReward": "旋转一次（点击抽奖）",
+  "LUCKY_LANDLORD_RELIC.flavor": "旋转一次一个。",
+
+  "NO_SL_GAO_SHOU.title": "nosl高手",
+  "NO_SL_GAO_SHOU.description": "每场战斗开始时，对所有敌人造成[blue]{Damage}[/blue]点伤害，然后使该遗物的伤害+[blue]1[/blue]。\n当你 SL 时，重置该遗物的伤害值。",
+  "NO_SL_GAO_SHOU.flavor": "希望海豹的连胜数比我的年龄要大。",
+
+  "JIAN_TA_YA_YI.title": "尖塔压抑",
+  "JIAN_TA_YA_YI.description": "每[blue]3[/blue]个回合，[gold]征婚[/gold][blue]2[/blue]。",
+  "JIAN_TA_YA_YI.flavor": "坟冢爆射了，超能光束了，倾泻了，萎靡了，重振精神了。",
+
+  "E_MO_QI_YUE_RELIC.title": "恶魔契约",
+  "E_MO_QI_YUE_RELIC.description": "房东[gold]收租[/gold]时，若无法支付房租，取消这次收租，然后该遗物失效。",
+  "E_MO_QI_YUE_RELIC.flavor": "你的房租交晚了，你将被赶出去。游戏结束！",
+
+  "HUA_JIA_GUAN_ZHONG.title": "花嫁观众",
+  "HUA_JIA_GUAN_ZHONG.description": "每场战斗中第一次将[gold]夫黑[/gold][gold]转化[/gold]为[gold]夫白[/gold]时，将其打出。",
+  "HUA_JIA_GUAN_ZHONG.flavor": "只有我一个女大学生天天穿着婚纱看夫哥直播吗？"
+}

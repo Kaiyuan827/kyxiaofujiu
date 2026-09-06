@@ -1,0 +1,245 @@
+{
+  "FUZU_BLACK.title": "夫黑",
+  "FUZU_BLACK.description": "[gold]不能被打出[/gold]，[gold]保留[/gold]。\n[pink]夫黑不会听夫哥的话，粘着夫哥🖤[/pink]",
+  "FUZU_WHITE.title": "夫白",
+  "FUZU_WHITE.description": "[pink]夫白会顺应夫哥的心愿，可以被打❤[/pink]",
+
+  "CONVERT_MECHANICS_TITLE": "转化",
+  "CONVERT_MECHANICS_DESC": "[gold]夫黑[/gold]与[gold]夫白[/gold]可以相互[gold]转化[/gold]。\n某些牌也可以将它们[gold]转化[/gold]为[gold]夫黄[/gold]。",
+
+  "FUHEI_PLAY_MECHANICS_TITLE": "夫黑打出",
+  "FUHEI_PLAY_MECHANICS_DESC": "无视[gold]不能被打出[/gold]，强制打出1张[gold]夫黑[/gold]。",
+
+  "MARRIAGE_MECHANICS_TITLE": "征婚",
+  "MARRIAGE_MECHANICS_DESC": "征婚时，若你的[gold]蛇花小姐[/gold]不在场上，召唤她辅助你攻击敌人。\n每[gold]征婚[/gold][blue]1[/blue]：她获得[blue]1[/blue][gold]征婚值[/gold]（该值与她的攻击伤害相关），然后你失去[blue]2[/blue]点生命（不会使你的生命值低于[blue]1[/blue]），她获得等量最大生命值。\n战斗结束时，你回复等同于她当前生命的生命值。",
+
+  "SALARY_MECHANICS_TITLE": "工资",
+  "SALARY_MECHANICS_DESC": "可用于交房租以及打出某些带工资消耗的卡牌。",
+
+  "PERFECT_BLOCK_MECHANICS_TITLE": "完美格挡",
+  "PERFECT_BLOCK_MECHANICS_DESC": "本回合的[gold]格挡[/gold]值恰好等于敌人的攻击伤害之和。",
+
+  "FUZU_YELLOW.title": "夫黄",
+  "FUZU_YELLOW.description": "[gold]保留[/gold]，[gold]重放[/gold][blue]1[/blue]，无法被[gold]转化[/gold]。",
+
+  "HEIZHUANBAIZHUANHEI.title": "黑转白转黑",
+  "HEIZHUANBAIZHUANHEI.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n[gold]转化[/gold]你[gold]手牌[/gold]中的至多{CardCount:diff()}张牌。",
+  "HEIZHUANBAIZHUANHEI.selectPrompt": "选择要转化的牌",
+
+  "NONGBAI.title": "农白",
+  "NONGBAI.description": "获得{Energy:energyIcons()}。\n所有敌人本回合获得{StrengthPower:diff()}点[gold]力量[/gold]。",
+  "STRIKEXIAOFUJIU.title": "打击",
+  "STRIKEXIAOFUJIU.description": "造成{Damage:diff()}点伤害。",
+  "DEFENDXIAOFUJIU.title": "防御",
+  "DEFENDXIAOFUJIU.description": "获得{Block:diff()}点[gold]格挡[/gold]。",
+  "FUHEISHUOHUA.title": "夫黑说话",
+  "FUHEISHUOHUA.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n打出你[gold]手牌[/gold]中的1张[gold]夫黑[/gold]。",
+  "FUHEISHUOHUA.selectPrompt": "选择一张夫黑卡牌",
+  "ONIUPI.title": "哦牛批",
+  "ONIUPI.description": "造成{Damage:diff()}点伤害X次。根据这张牌的类型额外获得效果：\n[gold]夫白[/gold]：给予X层[gold]虚弱[/gold]和[gold]易伤[/gold]。\n[gold]夫黑[/gold]：每段伤害增加X点。\n[gold]夫黄[/gold]：获得X点[gold]力量[/gold]。",
+
+  "FUBAIMAOMEI.title": "夫白貌美",
+  "FUBAIMAOMEI.description": "获得{Block:diff()}点[gold]格挡[/gold]。",
+  "DAPAITAIWENLE.title": "打牌太稳了",
+  "DAPAITAIWENLE.description": "获得等同于本回合出牌数两倍的[gold]格挡[/gold]。{InCombat:\n（获得{Block:diff()}点[gold]格挡[/gold]）|}",
+  "BZHANZHENGHUN.title": "B站征婚",
+  "BZHANZHENGHUN.description": "[gold]征婚[/gold]{MarryCount:diff()}。",
+  "HUODUILINGDIANWU.title": "火堆零点五",
+  "HUODUILINGDIANWU.description": "战斗结束时，回复5点生命，随机[gold]升级[/gold]你[gold]牌组[/gold]中的1张牌。",
+  "BAOHEI.title": "豹黑",
+  "BAOHEI.description": "抽{DrawCount:diff()}张牌。\n[gold]转化[/gold]你[gold]手牌[/gold]中的1张牌。",
+  "BAOHEI.selectPrompt": "选择要转化的牌",
+  "FUHUANGSC.title": "夫黄SC",
+  "FUHUANGSC.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n若你在本回合内受到未被格挡的攻击伤害，下回合获得1层[gold]易伤[/gold]。",
+  "ZHENGCHANGJIANGHUA.title": "正常讲话",
+  "ZHENGCHANGJIANGHUA.description": "若你的[gold]蛇花小姐[/gold]在场上，造成{Damage:diff()}点伤害，给予{WeakPower:diff()}层[gold]虚弱[/gold]。",
+  "ZHUANGTANG.title": "装唐",
+  "ZHUANGTANG.description": "结束你的回合。\n下回合开始时，[gold]击晕[/gold]所有敌人。",
+  "XIAOJIUJIU.title": "小九九",
+  "XIAOJIUJIU.description": "造成{Damage:diff()}点伤害。\n获得{Block:diff()}点[gold]格挡[/gold]。\n这张牌在本局游戏中的伤害永久+{DamageIncrease:diff()}，[gold]格挡[/gold]永久+{BlockIncrease:diff()}。",
+  "JUEBURENSHU.title": "绝不认输",
+  "JUEBURENSHU.description": "本回合内，当你的生命值将要降低至0或以下时，回复至10点生命，获得2点最大生命。",
+  "YAYI.title": "压抑",
+  "YAYI.description": "造成{Damage:diff()}点伤害。\n若这张牌未杀死敌人，获得2层[gold]虚弱[/gold]和[gold]易伤[/gold]。",
+  "DACHANGCHENGXUYUAN.title": "大厂程序员",
+  "DACHANGCHENGXUYUAN.description": "造成{Damage:diff()}点伤害。\n[gold]征婚[/gold]2。",
+  "DAGONGREN.title": "打工人",
+  "DAGONGREN.description": "造成{Damage:diff()}点伤害。\n获得{SalaryGain:diff()}[gold]工资[/gold]。",
+  "SUIXINZHE.title": "碎心者",
+  "SUIXINZHE.description": "获得{Block:diff()}点[gold]格挡[/gold]。",
+  "NONGFUSHEBAO.title": "农夫蛇豹",
+  "NONGFUSHEBAO.description": "[gold]格挡[/gold]不再在你的回合开始时消失。\n选择[gold]手牌[/gold]中的1张牌[gold]转化[/gold]为[gold]夫黄[/gold]。\n[gold]征婚[/gold]{MarryCount:diff()}。获得{Block:diff()}点[gold]格挡[/gold]。",
+  "NONGFUSHEBAO.selectPrompt": "选择一张手牌转化为夫黄",
+  "TIANTIANTIAN.title": "甜甜甜",
+  "TIANTIANTIAN.description": "[gold]征婚[/gold]{MarryCount:diff()}。",
+  "KUKUKU.title": "苦苦苦",
+  "KUKUKU.description": "获得{SalaryGain:diff()}[gold]工资[/gold]。\n3回合内无法[gold]征婚[/gold]。",
+  "TOUZI.title": "投资",
+  "TOUZI.description": "2回合后，随机获得{MinGain}-{MaxGain:diff()}[gold]工资[/gold]。\n抽1张牌。",
+  "NIUMA.title": "牛马",
+  "NIUMA.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n回合结束时，若这张牌在你的[gold]手牌[/gold]中，获得{SalaryGain:diff()}[gold]工资[/gold]。",
+  "FANGGANFUXUE.title": "放干夫血",
+  "FANGGANFUXUE.description": "获得{Energy:energyIcons()}。",
+  "OUJINJIN.title": "欧金金",
+  "OUJINJIN.description": "失去当前[gold]工资[/gold]的10%，造成等量伤害（至多{MaxDamage:diff()}）。",
+  "LIANGYUANSC.title": "两元SC",
+  "LIANGYUANSC.description": "选择你[gold]手牌[/gold]中的一张牌，将其[gold]转化[/gold]为[gold]夫黄[/gold]。",
+  "LIANGYUANSC.selectPrompt": "选择一张手牌转化为夫黄",
+  "SHUTUTONGGUI.title": "殊途同归",
+  "SHUTUTONGGUI.description": "选择你[gold]手牌[/gold]中的1张[gold]夫黑[/gold]与1张[gold]夫白[/gold]，将第一张[gold]转化[/gold]为[gold]夫黄[/gold]，[gold]消耗[/gold]另一张。",
+  "SHUTUTONGGUI.selectPrompt": "选择一张夫黑和一张夫白",
+  "WUQUNLAILE.title": "五群来了",
+  "WUQUNLAILE.description": "只有当你的[gold]手牌[/gold]数为10时才能打出。\n将你[gold]手牌[/gold]中的1张牌[gold]转化[/gold]为[gold]夫黄[/gold]。",
+  "WUQUNLAILE.selectPrompt": "选择一张手牌转化为夫黄",
+  "HUANGPIFUCAIDEI.title": "黄皮夫才对",
+  "HUANGPIFUCAIDEI.description": "[gold]夫黄[/gold]额外获得[gold]重放[/gold]1。",  "XIATOUNAN.title": "虾头楠",
+  "XIATOUNAN.description": "获得{StrengthGain:diff()}点[gold]力量[/gold]。\n获得{DexterityGain:diff()}点[gold]敏捷[/gold]。\n2回合内无法[gold]征婚[/gold]。",
+  "QINGGETANCHANG.title": "情歌弹唱",
+  "QINGGETANCHANG.description": "对所有敌人造成{Damage:diff()}点伤害，给予{VulnerablePower:diff()}层[gold]易伤[/gold]。",
+  "ZHENGHUNZHE.title": "征婚者",
+  "ZHENGHUNZHE.description": "回合开始时，[gold]征婚[/gold]1。",
+
+  "BIEDARAOFUGE.title": "别打扰夫哥",
+  "BIEDARAOFUGE.description": "回合开始时，将1张[gold]加班[/gold]加入你的[gold]手牌[/gold]。",
+  "JIABAN.title": "加班",
+  "JIABAN.description": "获得{Salary:diff()}[gold]工资[/gold]。\n获得2层[gold]虚弱[/gold]。",
+  "YAYIXINGTAI.title": "压抑形态",
+  "YAYIXINGTAI.description": "当你[gold]征婚[/gold]时，同时[gold]征婚[/gold]等量数值。",
+  "XIAOFUJIUSHILIANSHENG.title": "晓夫九十连胜",
+  "XIAOFUJIUSHILIANSHENG.description": "每回合第一次受到低于{Threshold:diff()}点的伤害时，将伤害降低为0。",
+  "NIZENMEHAIZAIZHE.title": "你怎么还在这",
+  "NIZENMEHAIZAIZHE.description": "[gold]征婚[/gold]{MarryCount:diff()}。\n获得{Block:diff()}点[gold]格挡[/gold]。\n失去{StrengthLoss:diff()}点[gold]力量[/gold]。",
+  "WUSHISC.title": "无视SC",
+  "WUSHISC.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n将[gold]弃牌堆[/gold]中的一张牌放入你的[gold]手牌[/gold]并[gold]转化[/gold]。",
+  "WUSHISC.selectPrompt": "选择弃牌堆的一张牌",
+  "CHIDAFEN.title": "吃大份",
+  "CHIDAFEN.description": "选择至多{CardCount:diff()}张[gold]手牌[/gold]消耗。\n每消耗一张牌，获得{Block:diff()}点[gold]格挡[/gold]。\n每消耗一张状态牌，[gold]征婚[/gold]1。",
+  "CHIDAFEN.selectPrompt": "选择要消耗的牌",
+  "CAOKONGYAOKONGQI.title": "操控遥控器",
+  "CAOKONGYAOKONGQI.description": "获得1层[gold]人工制品[/gold]。",
+  "NEIMAERDEXINWEI.title": "内马尔的欣慰",
+  "NEIMAERDEXINWEI.description": "回合开始时，获得{energyPrefix:energyIcons(1)}并额外抽1张牌。\n你每回合不能打出超过7张牌。",
+  "BAOMI.title": "爆米",
+  "BAOMI.description": "获得[gold]工资[/gold]时，所获得的[gold]工资[/gold]增加{SalaryGain:diff()}。",
+  "FUBAISHANGONG.title": "夫白上供",
+  "FUBAISHANGONG.description": "杀死一名敌人时，获得{SalaryGain:diff()}[gold]工资[/gold]。",
+  "CHAPIANRENZHI.title": "差偏认知",
+  "CHAPIANRENZHI.description": "战斗中获得[gold]工资[/gold]时，[gold]征婚[/gold]{MarryCount:diff()}。",
+  "TIANXUANDAGONGREN.title": "天选打工人",
+  "TIANXUANDAGONGREN.description": "造成{CalculatedDamage:diff()}点伤害。获得{SalaryGain:diff()}[gold]工资[/gold]。\n当前[gold]工资[/gold]每比350少10，额外+1点伤害和1[gold]工资[/gold]。",
+  "CHANGKAO.title": "长考",
+  "CHANGKAO.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n本回合获得{DexterityPower:diff()}点[gold]敏捷[/gold]。\n抽1张牌。",
+  "JIMI.title": "基米",
+  "JIMI.description": "获得{WeakAmount:diff()}层[gold]虚弱[/gold]。\n回合开始时，获得{energyPrefix:energyIcons(1)}。\n[pink]你有开腔的欲望。[/pink]",
+
+  "SHUANGMIANFUGE.title": "双面夫哥",
+  "SHUANGMIANFUGE.description": "造成{Damage:diff()}点伤害。\n若你本回合出牌数小于3张，抽{Cards:diff()}张牌。\n否则，获得{Block:diff()}点[gold]格挡[/gold]。",
+  "YICIYIGE.title": "一次一个",
+  "YICIYIGE.description": "每将1张[gold]夫黑[/gold][gold]转化[/gold]为[gold]夫白[/gold]，抽1张牌。",
+  "YAOJIAJIUJIA.title": "要嫁就嫁",
+  "YAOJIAJIUJIA.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n回合结束时，若这张牌在你的[gold]手牌[/gold]中且为[gold]夫黑[/gold]，[gold]转化[/gold]这张牌并视为打出。",
+
+  "FUGEBAOSHE.title": "夫哥爆射",
+  "FUGEBAOSHE.description": "对所有敌人造成{Damage:diff()}点伤害。\n[gold]转化[/gold]这张牌。",
+
+  "MUHOUHEISHOU.title": "幕后黑手",
+  "MUHOUHEISHOU.description": "获得{Block:diff()}点[gold]格挡[/gold]。\n[gold]手牌[/gold]中每有1张[gold]夫黑[/gold]，额外获得{BonusBlock:diff()}点[gold]格挡[/gold]。",
+
+  "TUFAEJI.title": "突发恶疾",
+  "TUFAEJI.description": "获得{Energy:energyIcons()}。\n随机[gold]转化[/gold]你[gold]手牌[/gold]中的{Count:diff()}张牌。",
+
+  "KTVGEWANG.title": "KTV歌王",
+  "KTVGEWANG.description": "[gold]转化[/gold]1张[gold]夫黑[/gold]。\n[gold]征婚[/gold]{MarryCount:diff()}。",
+  "KTVGEWANG.selectPrompt": "选择要转化的夫黑",
+
+  "ZHENGGEWELAI.title": "征个未来",
+  "ZHENGGEWELAI.description": "[gold]征婚[/gold]{IfUpgraded:show:3X|2X}，获得等量[gold]格挡[/gold]。",
+
+  "DIYUKUANGFU.title": "地狱狂夫",
+  "DIYUKUANGFU.description": "每当你抽到[gold]夫黑[/gold]时，将其打出。",
+
+  "DAIBADUODAI.title": "带吧多带",
+  "DAIBADUODAI.description": "选择你[gold]抽牌堆[/gold]中至多{CardCount:diff()}张牌，依次置于[gold]抽牌堆[/gold]顶并[gold]转化[/gold]。",
+  "DAIBADUODAI.selectPrompt": "选择要放到抽牌堆顶的牌",
+
+  "SANSHISUIDENANREN.title": "三十岁的男人",
+  "SANSHISUIDENANREN.description": "每当你[gold]征婚[/gold]时，获得等同于[gold]征婚值[/gold]两倍的[gold]格挡[/gold]。",
+
+  "FENGKUANGXUANZHUAN.title": "疯狂旋转",
+  "FENGKUANGXUANZHUAN.description": "造成{Damage:diff()}点伤害。\n给予{WeakPower:diff()}层[gold]虚弱[/gold]和{VulnerablePower:diff()}层[gold]易伤[/gold]。\n你的[gold]牌组[/gold]中每有1张[gold]债务[/gold]，额外攻击1次。",
+
+  "FUGEDAJIANBING.title": "夫哥大剑柄",
+  "FUGEDAJIANBING.description": "造成{Damage:diff()}点伤害。\n抽{DrawCount:diff()}张牌。",
+
+  "KUMINGYUANYANG.title": "苦命鸳鸯",
+  "KUMINGYUANYANG.description": "将[gold]抽牌堆[/gold]中随机1张[gold]夫黑[/gold]与1张[gold]夫白[/gold]加入[gold]手牌[/gold]。",
+
+  "DATOUERZI.title": "大头儿子",
+  "DATOUERZI.description": "造成{CalculatedDamage:diff()}点伤害。\n你的[gold]手牌[/gold]中每有1张[gold]夫黑[/gold]，伤害+{ExtraDamage:diff()}。",
+
+  "HUIKAJIU.title": "辉卡九",
+  "HUIKAJIU.description": "只有当你的[gold]手牌[/gold]耗能总和为9时才能打出。\n对所有敌人造成{Damage:diff()}点伤害。",
+
+  "SHIWANFENFULI.title": "十万粉福利",
+  "SHIWANFENFULI.description": "回合开始时，你可[gold]转化[/gold]你[gold]手牌[/gold]中的1张牌。{IfUpgraded:show:\n本场战斗中第一次抽到时，[gold]转化[/gold]这张牌。|}",
+
+  "CHUNQINGNVDA.title": "纯情女大",
+  "CHUNQINGNVDA.description": "[gold]转化[/gold]你[gold]手牌[/gold]中的任意张[gold]夫白[/gold]。\n每转化一张，[gold]征婚[/gold]{MarryCount:diff()}。",
+  "CHUNQINGNVDA.selectPrompt": "选择要转化的夫白",
+
+  "CHUANGSHIFUZHU.title": "创世夫柱",
+  "CHUANGSHIFUZHU.description": "每当你[gold]转化[/gold]时，获得{BlockGain:diff()}点[gold]格挡[/gold]。",
+
+  "SANPAIDAYUQIEQIE.title": "三牌大于一切",
+  "SANPAIDAYUQIEQIE.description": "回合结束时，若你的[gold]手牌[/gold]中[gold]夫黑[/gold]数量为3，下回合多抽2张牌。",
+
+  "CAITOUDAZHAN.title": "踩头大战",
+  "CAITOUDAZHAN.description": "造成{Damage:diff()}点伤害。\n若[gold]手牌[/gold]中[gold]夫黑[/gold]与[gold]夫白[/gold]数量相等，攻击2次。",
+
+  "GANGZUODEMEIJIA.title": "刚做的美甲",
+  "GANGZUODEMEIJIA.description": "[gold]转化[/gold]所有[gold]手牌[/gold]。",
+
+  "FUHUA.title": "夫化",
+  "FUHUA.description": "[gold]夫黑[/gold]耗能变为0 {energyPrefix:energyIcons(1)}且可以被打出。\n每当你打出一张[gold]夫黑[/gold]时，将其[gold]消耗[/gold]。",
+
+  "TUIDING.title": "退订",
+  "TUIDING.description": "打出你[gold]手牌[/gold]中的所有[gold]夫黑[/gold]。",
+
+  "BANGYISHENMEDONGXI.title": "榜一什么东西",
+  "BANGYISHENMEDONGXI.description": "造成{Damage:diff()}点伤害。\n本场战斗中，每[gold]转化[/gold]1张[gold]夫黑[/gold]，这张牌的耗能减少2。",
+
+  "FUDENVER.title": "夫的女儿",
+  "FUDENVER.description": "回合结束时，若你的[gold]手牌[/gold]中有[gold]夫黑[/gold]，获得{Block:diff()}点[gold]格挡[/gold]。",
+
+  "NIANNONGSHI.title": "念农师",
+  "NIANNONGSHI.description": "随机将[gold]手牌[/gold]中的1张[gold]夫黑[/gold]或[gold]夫白[/gold][gold]转化[/gold]为[gold]夫黄[/gold]。",
+
+  "ZHUIZONGZHISHE.title": "追踪之蛇",
+  "ZHUIZONGZHISHE.description": "[gold]征婚[/gold]{MarryCount:diff()}。\n[gold]蛇花小姐[/gold]会对所有敌人造成伤害。",
+
+  "LEJINWO.title": "勒紧我",
+  "LEJINWO.description": "[gold]征婚[/gold]{MarryCount:diff()}。\n本回合内打出攻击牌时，[gold]蛇花小姐[/gold]随机对敌人造成等同于[gold]征婚值[/gold]的伤害。（优先对该攻击牌的唯一目标敌人造成伤害）",
+
+  "BUWEINIERERSI.title": "不为你而死",
+  "BUWEINIERERSI.description": "[gold]征婚[/gold]{MarryCount:diff()}。\n[gold]征婚[/gold]不再失去生命。\n[gold]蛇花小姐[/gold]不再为你承受伤害。",
+
+  "YONGWEIMI.title": "用萎靡",
+  "YONGWEIMI.description": "所有生物失去{StrengthLoss:diff()}点[gold]力量[/gold]。",
+
+  "WUZHONGHENYI.title": "无终恨意",
+  "WUZHONGHENYI.description": "造成等同于已损失生命值的伤害。\n3回合内无法[gold]征婚[/gold]。{InCombat:\n（造成{CalculatedDamage:diff()}点伤害）|}",
+
+  "LAGE.title": "辣个",
+  "LAGE.description": "随机造成{MinDamage:diff()}-{MaxDamage:diff()}点伤害，并获得等同于该伤害一半的[gold]格挡[/gold]。",
+
+  "ZHANDOUZHIYING.title": "战斗之鹰",
+  "ZHANDOUZHIYING.description": "造成{Damage:diff()}点伤害。",
+
+  "RUFUMEN.title": "入夫门",
+  "RUFUMEN.description": "造成{CalculatedDamage:diff()}点伤害。\n本场战斗每[gold]转化[/gold]一次，伤害+{ExtraDamage:diff()}。",
+
+  "KAIFUYAN.title": "开夫眼",
+  "KAIFUYAN.description": "从[gold]抽牌堆[/gold]中选择{CardCount:diff()}张[gold]夫白[/gold]加入你的[gold]手牌[/gold]。",
+  "KAIFUYAN.selectPrompt": "选择要加入手牌的夫白卡"
+
+}

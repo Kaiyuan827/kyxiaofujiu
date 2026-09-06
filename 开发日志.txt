@@ -1,0 +1,2389 @@
+================================================================
+要嫁就嫁（Yaojiajiujia）开发日志
+================================================================
+
+一、卡牌设计目标
+----------------
+- 夫白状态：可直接打出，获得格挡，正常进入弃牌堆
+- 夫黑状态：由外部效果转化而来，回合结束自动转为夫白并打出，获得格挡
+- 夫黑拥有 Retain 关键词，保留在手牌中直到回合结束
+
+二、踩坑记录
+----------------
+
+坑1：OnPlay 中错误地调用了 Seal()
+  症状：夫白打出后变为夫黑，多段打出导致卡牌卡死在夫黑
+  修复：删除 OnPlay 中的 Seal()，夫白打出只获得格挡，不做状态转换
+
+坑2：不明白卡牌设计意图，强行做了自作聪明的"循环设计"
+  症状：把 CanonicalFufuState 改为 Black，加入了 AfterSideTurnStart 召回等复杂逻辑
+  修复：恢复 CanonicalFufuState = White，回归用户原本简洁的设计
+
+坑3：错误使用 BeforeSideTurnEnd 钩子
+  症状：在卡牌上重写 ShouldReceiveCombatHooks = true 并用 BeforeSideTurnEnd
+  原因：卡牌不参与 IterateHookListeners 迭代，钩子永远不会被分发到卡牌上
+  修复：改回 HasTurnEndInHandEffect / OnTurnEndInHand 方案
+
+坑4：一直不知道要同时更新 DLL 和 PCK
+  症状：所有代码改动在游戏中无任何效果，控制台无日志输出
+  原因：游戏从 E:\SteamLibrary\...\mods\ 加载 kyxiaofujiu.dll，
+        但编译输出只到了本地 build\ 目录，从未复制过去
+  修复：
+    a) 手动复制 DLL 到游戏 mods 目录后确认有效
+    b) 修改 .csproj 添加自动复制目标：
+       <Copy SourceFiles="@(OutputDlls)"
+             DestinationFolder="E:\SteamLibrary\steamapps\common\Slay the Spire 2\mods" />
+    以后 dotnet build 会自动部署 DLL
+
+坑5：夫白时也会有 OnTurnEndInHand 动画
+  症状：HasTurnEndInHandEffect 始终返回 true，夫白卡牌虽无效果但会走一遍打出动画
+  修复：改为 HasTurnEndInHandEffect => IsFufuBlack，夫白时不触发
+
+三、最终代码
+------------
+public override bool HasTurnEndInHandEffect => IsFufuBlack;
+
+protected override async Task OnPlay(...)
+{
+    await CreatureCmd.GainBlock(Owner.Creature, DynamicVars.Block, cardPlay);
+}
+
+protected override async Task OnTurnEndInHand(...)
+{
+    await base.OnTurnEndInHand(choiceContext);
+    if (!IsFufuBlack) return;
+    Unseal();
+    await CreatureCmd.GainBlock(Owner.Creature, DynamicVars.Block, null);
+}
+
+四、关键经验
+------------
+1. DLL 和 PCK 都要部署，缺一不可
+2. OnTurnEndInHand 是卡牌回合结束手牌效果的正确方案
+3. 卡牌不参与 Combat Hook 迭代，BeforeSideTurnEnd 等钩子不会分发给卡牌
+4. HasTurnEndInHandEffect 只在 DoTurnEnd 中被检查，用于手牌中的卡牌
+5. OnTurnEndInHandWrapper 会自动：移入 Play → 调用 OnTurnEndInHand → 弃牌
+6. 记录于 2026-07-19
+================================================================
+
+
+================================================================
+初始遗物"卡九"开发日志
+2026-07-22
+================================================================
+
+一、设计目标
+------------
+- 每10回合，获得1点能量并抽1张牌
+- 每次夫黑夫白转化可使计数器+1，但转化最多只能将计数器推到9
+- 只有回合开始的自动+1才能突破9触发效果（9→10）
+
+二、踩坑记录
+------------
+
+坑1：RelicModel 没有 OnPlayerTurnStart 方法（GAME_REFERENCE.md 文档有误）
+  症状：CS0115 找不到适合的方法来重写
+  修复：参考游戏本体 HappyFlower（开心小花），使用 AfterSideTurnStart
+        + participants.Contains(Owner.Creature) 判断玩家回合开始
+
+坑2：RelicModel.Owner 类型混淆
+  症状：CS1061 "Player"未包含"Player"的定义
+  原因：RelicModel.Owner 本身就是 Player 类型，不需要 .Player
+        （PowerModel.Owner 才是 Creature 类型，需要 .Player）
+  修复：card.Owner != Owner（而非 Owner?.Player）
+
+坑3：IReadOnlyList<Creature> 没有 Contains
+  症状：CS1061 未包含"Contains"的定义
+  修复：添加 using System.Linq
+
+坑4：AfterSideTurnStart 没有 PlayerChoiceContext 参数
+  症状：CardPileCmd.Draw 需要 PlayerChoiceContext
+  修复：使用 new ThrowingPlayerChoiceContext() 代替
+
+三、关键经验
+------------
+1. 遗物回合钩子参考本体 HappyFlower（E:\sts2\src\Core\Models\Relics\HappyFlower.cs）
+2. AfterSideTurnStart 是判断玩家回合开始的首选钩子
+3. RelicModel.Owner → Player；PowerModel.Owner → Creature
+4. 编译前务必先 dotnet build 验证，不能再直接交付未编译的代码
+5. "尖塔高手"遗物已注释保留，后续可恢复
+
+四、涉及文件
+------------
+- src/relicpools/KaJiuRelic.cs          （新建，遗物核心逻辑）
+- src/characters/xiaofujiu.cs           （注释尖塔高手，添加卡九为初始遗物）
+- src/relicpools/xiaofujiurelicpool.cs  （注册卡九到遗物池）
+- kyxiaofujiu/localization/zhs/relics.json （本地化文本）
+- GAME_REFERENCE.md                     （修正 RelicModel API 文档）
+- src/cardpools/Oniupi.cs               （顺便添加固有词条）
+
+================================================================
+幕后黑手（Muhouheishou）开发日志
+================================================================
+
+一、设计目标
+----------------
+- 费用1的技能牌，初始夫白
+- 基础 5 格挡 + 手牌中每张夫黑额外 +2 格挡
+- 升级后每张夫黑额外 +3 格挡
+
+二、要点
+----------------
+1. 用 CountFufuBlackInHand() 遍历 PileType.Hand.GetPile(Owner).Cards
+   检查 c is XiaofujiuCardBase && card.IsFufuBlack 来计数夫黑
+2. CreatureCmd.GainBlock 接受 (Creature, int, ValueProp, CardPlay?) 重载
+3. 升级通过 OnUpgrade 控制判断条件（IsUpgraded ? 3 : 2）
+4. 拼写坑：幕 mù 不是 muò → 全名是 Muhouheishou 不是 Muohouheishou
+================================================================
+
+
+================================================================
+突发恶疾（Tufaeji）开发日志
+================================================================
+
+一、设计目标
+----------------
+- 0费技能牌，初始夫白
+- 获得 2 能量（升级 3），随机转化手中 2 张牌的夫黑夫白状态
+- 用 FufuCmd.Toggle() 实现黑变白、白变黑
+
+二、要点
+----------------
+1. PileType.Hand.GetPile(Owner) 获取手牌，过滤 c is XiaofujiuCardBase && fc.IsFufu
+2. Godot.GD.Randi() 做随机选择，从列表中移除已选防止重复
+3. FufuCmd.Toggle 一键翻转夫黑夫白状态
+4. EnergyVar 构造可能因 DLL 版本不兼容 → 改用 OnPlay 硬编码能量值
+================================================================
+
+
+================================================================
+KTV歌王（Ktvgewang）开发日志
+================================================================
+
+一、设计目标
+----------------
+- 1费技能牌，初始夫白
+- 从手牌选择一张夫黑丢弃，然后征婚 3 次（升级 4）
+- 夫黑转化成夫黑说话的燃料，同时补充蛇花小姐
+
+二、参考模式
+----------------
+- 参考 Heizhuanbaizhuanhei 的 CardSelectCmd.FromHand 做卡牌选择
+- 选择时过滤 c is XiaofujiuCardBase && fc.IsFufuBlack
+- CardCmd.Discard 丢弃选中卡牌
+- ZhengHunCmd.Marry 执行征婚
+- CardSelectorPrefs 需要 LocString 作为提示文字，对应卡片json中的 selectPrompt
+================================================================
+
+
+================================================================
+蛇花小姐（SheHuaXiaoJie）伤害吸收机制 开发日志
+================================================================
+
+一、设计目标
+----------------
+- 征婚召唤物，HP = 征婚值 × 2，回合结束造成 3 次 × 征婚值 伤害
+- 优先承受玩家未格挡伤害（类似奥斯提 Osty）
+- 敌人大攻击到玩家 → 先扣玩家格挡 → 未格挡部分由蛇花小姐承受
+  → 蛇花小姐不够扛的溢出伤害返回玩家
+- 征婚扣血、其他自伤不触发阻挡
+- 战斗结束晓夫九恢复蛇花小姐当前 HP
+
+二、踩坑记录
+----------------
+
+坑1：用 AfterDamageReceived 回血式吸收 → 伤害先扣玩家再回血，一击毙命时来不及
+  症状：敌人伤害 > 玩家当前 HP 时，玩家直接死，蛇花小姐活着也不挡
+  原因：伤害先造成 HP 变化 → death check → AfterDamageReceived 才有机会回血
+  尝试方案：
+    a) ModifyDamageAdditive 减免伤害 → 影响敌人攻击意图数字显示
+    b) BeforeDeath 拦截死亡并回血 → 来回血量计算复杂，不可靠
+    c) SheHuaProtectionPower 独立 Power → ModifyDamageAdditive 不生效
+  最终修复：照搬 Osty 的 ModifyUnblockedDamageTarget
+
+坑2：ModifyDamageAdditive 影响攻击意图显示
+  症状：敌人大攻击意图数字随征婚值减少，玩家无法判断真实伤害
+  原因：ModifyDamageAdditive 修改了伤害数值本身，UI 直接显示修改后的值
+  修复：改用 ModifyUnblockedDamageTarget 只改目标不改数值
+
+坑3：Block（格挡）被绕过
+  症状：ModifyDamageAdditive 在格挡前生效，玩家有格挡时蛇花小姐仍吃满伤害
+  原因：ModifyDamageAdditive 在伤害计算最开始就拦截，早于格挡判定
+  修复：ModifyUnblockedDamageTarget 只处理「未格挡」伤害，格挡先正常扣玩家
+
+坑4：搞了一个复杂 Power 方案完全无用
+  症状：SheHuaProtectionPower 里的 ModifyDamageAdditive 没被调用
+  原因：MonsterModel 自身就是 ShouldReceiveCombatHooks=true，不需要额外 Power
+  修复：删除 Power，直接把逻辑写在 MonsterModel 上
+
+三、最终方案 — Osty 模式
+------------------------
+核心只有一个方法覆盖：
+
+public override Creature ModifyUnblockedDamageTarget(
+    Creature originalTarget, decimal amount, ValueProp props, Creature? dealer)
+{
+    // 玩家受到的未格挡伤害 → 目标重定向到蛇花小姐
+    if (主人 == 被攻击目标 && 蛇花小姐存活)
+        return Creature;  // 返回蛇花小姐自身
+    return originalTarget;
+}
+
+游戏引擎原生伤害流程自动处理：
+  1. Hook.ModifyDamage — 修改伤害数值（不影响）
+  2. BeforeDamageReceived — 通知钩子
+  3. Block 判定 — 玩家先扣格挡
+  4. ModifyUnblockedDamageTarget — 改变「未格挡伤害」的目标 ← 我们只介入这里
+  5. HP Loss 应用 — 打到蛇花小姐，溢出返回玩家
+
+四、其他修正
+----------------
+- 攻击从 1 次大伤害 → 3 次小伤害（for 循环，每次 _marryCount）
+- HP 公式修正：MinInitialHp=0，初始通过 Upgrade×n 设为 2×征婚值
+- 征婚扣血加判断 dealer==null → 不被蛇花小姐拦截
+
+五、关键经验
+----------------
+1. ModifyUnblockedDamageTarget 是 Osty 同款伤害重定向，不改 UI 不改 Block
+2. MonsterModel 自身就可以收钩子（ShouldReceiveCombatHooks=true），不需要 Power
+3. ModifyDamageAdditive 会改意图数字，只适合隐形加减伤，不适合做挡刀
+4. AfterDamageReceived 回血的时机在 death check 之后，扛不住一击毙命
+5. 直接读游戏源码（Osty.cs + CreatureCmd.cs + Hook.cs）比试一百种方案更高效
+6. 记录于 2026-07-19
+================================================================
+
+
+================================================================
+夫的女儿（Fudenver）开发日志
+2026-07-22
+================================================================
+
+一、设计目标
+------------
+- 1费 罕见 能力牌，初始夫白
+- 回合结束时，手牌中有夫黑则获得 4 格挡（升级 6）
+- Power 堆叠：多张叠加格挡值
+
+二、要点
+--------
+1. Power 用 AfterSideTurnEnd + side == CombatSide.Player 检测回合结束
+2. PileType.Hand.GetPile(Owner.Player).Cards.OfType<XiaofujiuCardBase>()
+   检测手牌夫黑
+3. PowerStackType.Counter 支持多层叠加
+
+三、涉及文件
+------------
+- src/cardpools/Fudenver.cs
+- src/powers/FudenverPower.cs
+- src/cardpools/xiaofujiucardpool.cs（注册）
+- kyxiaofujiu/localization/zhs/cards.json
+- kyxiaofujiu/localization/zhs/powers.json
+================================================================
+
+
+================================================================
+DynamicVars / CanonicalVars 缺失导致卡面数字不显示 — 修复日志
+2026-07-22
+================================================================
+
+一、症状
+--------
+- 夫的女儿（Fudenver）卡面不显示格挡数值
+- 突发恶疾（Tufaeji）卡面不显示能量和转化数量
+
+二、根因
+--------
+两张卡都没有定义 CanonicalVars（DynamicVar 数组），导致本地化中的
+{Block:diff()} / {Energy:diff()} / {Count:diff()} 无法解析。
+
+正确模式（参考 Strikexiaofujiu / Defendxiaofujiu）：
+  1. 定义 CanonicalVars 返回 DynamicVar[]（BlockVar / EnergyVar / IntVar 等）
+  2. OnPlay 中通过 DynamicVars.Block.BaseValue 读取值
+  3. OnUpgrade 中通过 DynamicVars.Block.UpgradeValueBy() 升级值
+  4. 本地化使用 {VarName:diff()} 语法引用
+
+三、修复内容
+------------
+Fudenver:
+  - 添加 CanonicalVars: new BlockVar(4m, ValueProp.Move)
+  - OnPlay: 硬编码 → (int)DynamicVars.Block.BaseValue
+  - OnUpgrade: 空方法 → DynamicVars.Block.UpgradeValueBy(2m)
+  - 本地化: {Block} → {Block:diff()}，删除硬编码 upgradeDescription
+
+Tufaeji:
+  - 添加 CanonicalVars: new EnergyVar(2) + new IntVar("Count", 2m)
+  - OnPlay: 硬编码 → DynamicVars.Energy.BaseValue
+  - OnUpgrade: 空方法 → DynamicVars.Energy.UpgradeValueBy(1m)
+
+四、关键经验
+------------
+1. 卡牌必须定义 CanonicalVars，游戏用它驱动卡面数字和升级值
+2. 本地化 {VarName:diff()} 必须在 CanonicalVars 中有对应 DynamicVar
+3. upgradeDescription 不需要手动写，游戏根据 CanonicalVars + OnUpgrade 自动生成
+4. 不要再硬编码 IsUpgraded ? a : b，全部走 DynamicVars
+================================================================
+
+
+================================================================
+卡牌类名命名规范统一 — 修复日志
+2026-07-22
+================================================================
+
+一、规范
+--------
+类名：只首字母大写，其余全小写（如 Fugedajianbing、Nongbai）
+本地化 key：类名全大写，原大写字母处不插入下划线（如 FUGEDAJIANBING、NONGBAI）
+
+二、修改清单
+------------
+  FubaiShangong      → Fubaishangong      （卡牌类+文件名+Power+本地化key）
+  FubaiShangongPower → FubaishangongPower
+  NongBai            → Nongbai             （卡牌类+文件名+本地化key）
+  ShuangMianFuGe     → Shuangmianfuge      （卡牌类+文件名+本地化key）
+  FugeDajianbing.cs  → Fugedajianbing.cs   （仅文件名，类名已正确）
+
+三、本地化 key 变化
+-------------------
+  FUBAI_SHANGONG       → FUBAISHANGONG
+  FUBAI_SHANGONG_POWER → FUBAISHANGONG_POWER
+  NONG_BAI             → NONGBAI
+  SHUANG_MIAN_FU_GE    → SHUANGMIANFUGE
+================================================================
+
+
+================================================================
+卡牌大全（Card Library）晓夫九筛选按钮 — 开发日志
+2026-07-26
+================================================================
+
+一、需求
+--------
+- 游戏内卡牌大全界面没有晓夫九的专属筛选按钮
+- 晓夫九卡牌分散在各筛选分类中，无法集中查看
+- 需要添加一个类似铁甲战士/静默猎手那样的角色专属按钮
+
+二、实现原理
+------------
+游戏卡牌大全（NCardLibrary）通过 _poolFilters 字典管理池筛选按钮：
+  _poolFilters.Add(ironcladFilter, c => c.Pool is IroncladCardPool);
+  _poolFilters.Add(silentFilter,   c => c.Pool is SilentCardPool);
+  ...
+
+按钮本身是 Godot 场景节点（%IroncladPool 等），由编辑器预设。
+对于模组角色，无法编辑游戏场景，只能在运行时动态创建按钮。
+
+三、实现方案
+------------
+通过 Harmony Postfix 补丁 NCardLibrary._Ready()：
+  1. Traverse 反射获取私有字段 _poolFilters、_cardPoolFilters、_miscPoolFilter
+  2. 克隆 _miscPoolFilter 节点（Duplicate()）作为晓夫九按钮
+  3. 加载 xiaofujiu_icon.tscn 场景替换图标
+  4. 设置 Loc = "晓夫九的卡组"（新增 characters.json key）
+  5. 注册筛选函数：c => c.Pool is XiaofujiuCardPool
+  6. 关联角色映射：_cardPoolFilters.Add(Xiaofujiu, filter)
+  7. 连接 Toggled 信号实现 radio-button 互斥行为
+  8. 连接 focus_entered 记录最后悬停控件
+
+四、踩坑记录
+------------
+
+坑1：初次以为是"黑屏"崩溃
+  症状：用户说点击卡牌大全黑屏
+  排查：检查了全部 57 张卡牌注册、本地化、CanonicalVars 均无问题
+  实际：并非崩溃，而是界面上根本没有晓夫九的筛选按钮，
+        且默认选中铁甲战士筛选，看不到晓夫九的卡牌
+  结论：差偏认知作为先古牌能正常显示，说明卡牌注册没问题，缺少的是 UI 按钮
+
+坑2：克隆按钮保留了原 Misc 样式
+  症状：按钮图标和描述显示为"状态诅咒事件和衍生牌"
+  原因：Duplicate() 拷贝了原节点的所有属性
+  修复：
+    - 图标：加载 xiaofujiu_icon.tscn → 实例化 → 替换 Image 子节点
+    - 描述：Loc 改为 characters/XIAOFUJIU.cardPoolTitle
+
+坑3：UpdateCardPoolFilter 是 private 方法
+  症状：无法直接获取 _Ready 中的局部变量 callable
+  修复：用反射获取 MethodInfo，Delegate.CreateDelegate 创建委托，
+        再通过 Callable.From 转为 Godot Callable 连接信号
+
+五、涉及文件
+------------
+- kyxiaofujiuInitializer.cs                   （补丁5：NCardLibrary_Ready_Patch）
+- kyxiaofujiu/localization/zhs/characters.json （新增 XIAOFUJIU.cardPoolTitle）
+================================================================
+
+
+================================================================
+第四层建筑师对话卡死 — 修复日志
+2026-07-26
+================================================================
+
+一、症状
+--------
+- 晓夫九进入第四层（Blight1 Era）见到建筑师后，无法进行任何操作，游戏直接结束
+- 日志显示：TheArchitect_DialogueSet_Patch 注入成功，但随即 NGame.Quit
+
+二、根因
+--------
+TheArchitect.DefineDialogues() 的 CharacterDialogues 字典只有 5 个本体角色
+（Ironclad/Silent/Defect/Necrobinder/Regent），没有晓夫九的条目。
+GetValidDialogues() 返回空列表 → LoadDialogue() 失败 → GenerateInitialOptions()
+直接返回 ProceedOption → WinRun() → 游戏秒退。
+
+三、第一次修复（失败）
+--------------------
+Postfix 补丁 DialogueSet getter，向 CharacterDialogues 注入 AncientDialogue。
+症状：日志显示注入成功，但对话仍不生效，游戏秒退。
+
+坑：PopulateLocKeys 时序问题
+  PopulateLocKeys() 在 getter 中 DefineDialogues() 返回后立即执行，
+  遍历 CharacterDialogues 调用 PopulateLines() 初始化 LineText/Speaker。
+  我们的 Postfix 在 getter 返回后才注入，此时 PopulateLocKeys 早已执行完毕，
+  新对话的 Lines 从未被 PopulateLines 初始化 → LineText 为空 → Dialogue 无效。
+
+四、第二次修复（成功）
+---------------------
+在 Postfix 中：
+  1. 手动调用 dialogue.PopulateLines("THE_ARCHITECT", charKey, 0)
+     → 初始化 3 句对话的 LineText 和 Speaker
+  2. 手动设置前 2 行的 .next 按钮文本
+     → line.NextButtonText = LocString("ancients", "{key}.next")
+  3. ancients.json 新增 .next 本地化 key（0-0.next, 0-1.next）
+
+对话流程：建筑师→晓夫九→建筑师，EndAttackers=Architect 让建筑师击杀晓夫九。
+
+五、涉及文件
+------------
+- kyxiaofujiuInitializer.cs                          （补丁6：TheArchitect_DialogueSet_Patch）
+- kyxiaofujiu/localization/zhs/ancients.json          （新建，建筑师对话本地化）
+
+六、关键经验
+------------
+1. PopulateLocKeys 在 getter 的缓存分支中同步执行，Postfix 太晚
+2. AncientDialogue.PopulateLines 依赖 LocString.Exists 检查本地化 key
+3. 每个非末行需要 .next key 作为"继续"按钮文字
+================================================================
+
+
+================================================================
+8 个先古对话注入 + GetValidDialogues 优先级修复
+2026-07-26
+================================================================
+
+一、需求
+--------
+为 DARV / NEOW / NONUPEIPE / OROBAS / PAEL / TANX / TEZCATARA / VAKUU
+共 8 个先古添加晓夫九专属中文对话。
+
+二、架构设计
+------------
+每个先古都继承 AncientEventModel，共享同一个 DialogueSet getter。
+因此只需一个 Postfix 补丁覆盖全部，配合字典驱动：
+
+  XiaofujiuAncientDialogues  — 静态字典：<先古ID, 对话行数>
+  AncientDialogueInjector    — 通用注入方法（创建→PopulateLines→.next→注入）
+  补丁6a：TheArchitect       — 单独补丁（继承 EventModel，需 EndAttackers.Architect）
+  补丁6b：AncientEventModel  — 通用补丁（覆盖其余 8 个先古）
+
+三、踩坑记录
+------------
+
+坑1：对话注入成功但只播放默认对话（FirstVisitEverDialogue 优先级问题）
+  症状：日志中所有先古均显示注入成功，但实际只播放通用初见对话
+  根因：GetValidDialogues 中 totalVisits==0 && FirstVisitEverDialogue!=null
+        直接返回 FirstVisitEverDialogue，完全跳过 CharacterDialogues。
+        由于玩家 wins==0，所有有 FirstVisitEverDialogue 的先古都不会查角色对话。
+  修复：
+    - 设置 IsRepeating=true（兜底后续访问匹配）
+    - 新增补丁6c：AncientDialogueSet_GetValidDialogues_Patch
+      Prefix 拦截，对晓夫九跳过 FirstVisitEverDialogue 检查，
+      优先从 CharacterDialogues 中查找（先精确 VisitIndex→再 IsRepeating 兜底）
+
+坑2：dev console "ancient peal" 无注入日志
+  症状：PAEL 在 dev console 测试时不触发注入
+  原因：命令触发后未实际加载事件房间（无 Preloading 日志），非补丁问题
+
+四、涉及文件
+------------
+- kyxiaofujiuInitializer.cs                 （补丁6a/6b/6c + 注入器类）
+- kyxiaofujiu/localization/zhs/ancients.json （9 个先古 × 每古 1-3 句对话）
+
+五、关键经验
+------------
+1. AncientEventModel 是所有先古的公共基类，DialogueSet getter 可统一拦截
+2. TheArchitect 单独继承 EventModel，需独立补丁
+3. FirstVisitEverDialogue 的 totalVisits==0 判断会在 wins==0 时覆盖所有角色对话
+4. IsRepeating + VisitIndex 组合可覆盖首次和后续所有访问
+================================================================
+
+
+================================================================
+豹区（BaoQu）Boss + 蛇花敌人 — 开发日志
+================================================================
+
+一、设计目标
+------------
+- 第三层 Boss"豹区"，能力"sl百连"：血量低于阈值时回满血并召唤"敌方蛇花"
+- Boss 专属战斗音乐（要嫁就嫁晓夫九）+ 婚礼背景
+- 蛇花为多段攻击召唤物，拥有独立站位
+
+二、实现要点
+------------
+1. BaoQu（src/monsters/BaoQu.cs）：HP 120/130，状态机
+   BUFF_DEFEND_MOVE → MULTI_DEBUFF_MOVE → BIG_ATTACK_MOVE 循环
+   AfterAddedToRoom() 施加 SlBaiLianPower(50)
+2. SlBaiLianPower（src/powers/SlBaiLianPower.cs）：
+   AfterDamageReceived 检查 WasTargetKilled / Owner.IsDead，
+   触发时回满血 + CreatureCmd.Add<EnemySheHua> 召唤蛇花 + 施加 MinionPower
+3. BaoQuBoss（src/monsters/BaoQuBoss.cs）：EncounterModel，
+   RoomType.Boss，HasScene=true，Slots=["boss","snake1"...]，
+   CustomBgm="custom:yao_jiu_yao_jia_xiao_fu_ji"
+4. Boss 音乐：Harmony Prefix 拦截含 "custom:" 前缀的音乐名 →
+   CustomAudioManager.PlayBgm（循环播放），StopMusic/UpdateMusic 同步补丁
+5. 婚礼背景：CustomBackgroundManager.ShowBossBackground 在战斗房间
+   设置后把 wedding_bg.png 全屏 TextureRect 挂到背景容器
+
+三、踩坑记录
+------------
+
+坑1：背景用场景方案失败
+  症状：导出 pck 后 InvalidCastException（mod 场景无法引用游戏脚本 NCombatBackground）
+  修复：放弃场景方案，改用纯代码 CustomBackgroundManager 动态添加 TextureRect
+
+坑2：背景层级覆盖怪物
+  症状：背景 ZIndex=10 时盖住怪物（Godot z_index 是累加的）
+  修复：移除 ZIndex，用锚点居中 + 偏移（left -980/940、top/bottom -540/540）定位
+
+坑3：pck 被 csproj 自动复制覆盖
+  症状：手动导出的新 pck 被旧的自动复制 pck 覆盖，新资源（婚礼背景/音乐）不生效
+  修复：从 csproj 移除 pck 复制步骤，只自动复制 DLL；pck 由用户手动导出
+
+四、涉及文件
+------------
+- src/monsters/BaoQu.cs / EnemySheHua.cs / BaoQuBoss.cs
+- src/powers/SlBaiLianPower.cs
+- src/utils/CustomAudioManager.cs / CustomBackgroundManager.cs
+- scenes/encounters/bao_qu_boss.tscn
+- images/backgrounds/wedding_bg.png
+- kyxiaofujiuInitializer.cs（补丁：音乐、背景、Boss 生成/遭遇注册）
+================================================================
+
+
+================================================================
+工资系统（幸运房东 LuckyLandlordRelic）— 开发日志
+================================================================
+
+一、设计目标
+------------
+- 每场战斗胜利 +100 工资
+- 每 4 场收租：工资 ≥ 房租则扣房租 + 随机奖励，房租 +100
+- 付不起房租则往牌组塞一张【债务】诅咒卡
+- 遗物描述显示"距离下次收租剩余 x 场战斗"
+
+二、实现要点
+------------
+1. AfterCombatVictory +100 工资；每 4 场 CollectRent 收租
+2. 奖励表（roll 1-100）：遗物16% / 100金19% / 20血16% / 卡牌16% / 药水16% / 无16% / 999金1%
+3. RNG 用 player.PlayerRng.Rewards
+4. [SavedProperty] 持久化 Salary/Rent/CombatCount/LastRewardText
+5. CanonicalVars：IntVar Salary/Rent/Countdown + StringVar LastReward
+6. 收租倒计时：Countdown = 4 - CombatCount，遗物描述 {Countdown} 动态显示
+7. 提示气泡用 NSpeechBubbleVfx.Create(text, Owner.Creature, 2.5)
+
+三、踩坑记录
+------------
+
+坑1：CanonicalModelException
+  症状：随机遗物/药水直接 Obtain/Procure 抛 canonical 异常
+  原因：ModelDb / Rng.NextItem 返回的是 canonical 模型
+  修复：先 .ToMutable() 再 RelicCmd.Obtain / PotionCmd.TryToProcure
+
+坑2：药水栏满崩溃
+  症状：直接给药水在药水栏满时报错
+  修复：药水奖励改为 TryModifyRewards 钩子里 rewards.Add(new PotionReward(player))，
+        由游戏自身处理药水栏满逻辑
+
+坑3：战斗中使用 RewardsCmd.OfferCustom 崩溃
+  症状：战斗进行中直接发卡牌奖励崩溃
+  修复：卡牌奖励改为 _pendingCardReward 标记 + TryModifyRewards 钩子追加
+        CardReward 到战斗结束战利品
+
+四、涉及文件
+------------
+- src/relicpools/LuckyLandlordRelic.cs
+- src/relicpools/xiaofujiurelicpool.cs（注册）
+- src/characters/xiaofujiu.cs（初始遗物）
+- kyxiaofujiu/localization/zhs/relics.json
+================================================================
+
+
+================================================================
+夫黄体系（FufuState.Yellow）— 开发日志
+================================================================
+
+一、设计目标
+------------
+- 夫黄由夫黑/夫白通过特殊途径转化而来
+- 获得"保留"和"重放1"，不可再被转化
+- 与夫黑/夫白相同的视觉（fufu_yellow_overlay.png）
+- 测试卡"念农师"：1费技能稀有初始夫白，随机一张黑白手牌转化夫黄，升级费用-1
+- "转化为夫黄"视为与黑白转化相同的事件，能触发初始遗物、创世夫柱等
+
+二、实现要点
+------------
+1. FufuState 枚举新增 Yellow
+2. UpdateFufuKeywords()：夫黑/夫黄加 Retain，夫黄设 BaseReplayCount=1
+   （游戏无 Replay 关键词，用 CardModel.BaseReplayCount 实现重放）
+3. Seal/Unseal/ToggleFufu 对 Yellow 无效（不可再被转化）
+4. 转化触发链自动生效：FufuState setter → OnFufuStateChanged →
+   FufuStateChanged 事件（尖塔糕手计数）+ NotifyOwnerPowers（创世夫柱），
+   对任意非 None 状态变化都触发
+5. FufuCmd.ConvertToYellow(card) 转化命令
+6. FufuOverlayHelper 新增黄色分支 → fufu_yellow_overlay.png
+7. 念农师 Niannongshi：PileType.Hand 过滤黑白卡 + Rng.NextItem 随机选一张
+
+三、涉及文件
+------------
+- src/core/FufuState.cs
+- src/core/XiaofujiuCardBase.cs
+- src/utils/FufuOverlayHelper.cs
+- src/commands/FufuCmd.cs
+- src/cardpools/Niannongshi.cs（注册到 xiaofujiucardpool）
+- kyxiaofujiu/localization/zhs/cards.json（念农师 + FUZU_YELLOW 提示）
+================================================================
+
+
+================================================================
+夫态图标重叠（转化后旧图标不清除）— 修复日志
+================================================================
+
+一、症状
+--------
+- 初始夫白正常（卡面一个图标），转化为夫黄后新旧图标重叠
+- 夫白翅膀大，下层仍可见，遮不干净
+
+二、根因
+--------
+- kyxiaofujiuInitializer.cs 的 NCard_UpdateVisuals_Patch：
+  每次 UpdateVisuals（卡牌视觉刷新，很频繁）都调用 FufuOverlayHelper.Add
+- FufuOverlayHelper.Clear 用 child.QueueFree()，是延迟到下一帧才删除
+- 转化时同一帧内 RefreshOverlay + 多次 UpdateVisuals 都会触发 Add，
+  旧图标节点被 QueueFree 后当前帧仍在容器中，新图标又加进来 → 重叠
+
+三、修复
+--------
+- Clear 改为 container.RemoveChild(child) + child.QueueFree()，立即移除旧图标
+- 添加新图标前旧图标即刻清除，卡面上始终只有一个图标
+- 图标位置/大小保持原本设计（96×96，-100,-300）
+
+四、关键经验
+------------
+1. QueueFree 是延迟删除（帧末才删），同帧内多次 AddChild 会残留旧节点
+2. 需要立即清空容器子节点时，用 RemoveChild 先移除再 QueueFree
+3. 排查"重叠"类问题先找所有 Add 入口（Harmony patch 也会反复 Add）
+================================================================
+
+================================================================
+工资体系（Salary System）开发日志
+================================================================
+
+一、设计
+--------
+- 工资 = 永久跨战斗保留的资源（来自【幸运房东 LuckyLandlordRelic】：
+  战斗胜利+100，打工人+20，天选打工状态回合开始+25）
+- 区别于储君辉星（战斗内临时资源）：工资是跨战斗的永久资源
+- 需要工资的卡牌：打出前检查工资足够，不够则卡牌变灰不可打出；
+  打出时从 LuckyLandlordRelic.Salary 扣除
+
+二、实现
+--------
+- XiaofujiuCardBase 新增：
+  * public virtual int SalaryCost => 0（子类 override 设置工资花费）
+  * public bool HasSalaryCost => SalaryCost > 0
+  * public int CurrentSalary（读 Owner.Relics.OfType<LuckyLandlordRelic>().Salary）
+  * IsPlayable 中叠加工资检查：HasSalaryCost && CurrentSalary < SalaryCost → 不可打出
+- SalaryOverlayHelper（src/utils/）：参考 FufuOverlayHelper 方式，
+  在 OverlayContainer 中动态添加工资图标（images/ui/salary.png）+ 花费数字
+  * 位置 (-7,51) 58x58：对应 card.tscn 中 StarIcon 位置（能量图标正下方）
+    StarIcon offset(-186,-189)->(-128,-131) 中心相对卡牌中心(-157,-160)，
+    卡牌300x422中心(150,211) → OverlayContainer中 (-7,51)
+  * UpdateAffordability：工资不足时图标/数字变红
+- kyxiaofujiuInitializer.cs 补丁：
+  * NCard_SetModel/OnReturnedFromPool Prefix：Clear 工资图标
+  * NCard_Ready/UpdateVisuals Postfix：Add 工资图标 + UpdateAffordability
+  * CardModel.SpendResources Postfix：打出时扣除工资
+    （SpendResources 仅手动打出调用；自动打出不扣，与游戏内自动打出不扣能量一致）
+
+三、已设为工资卡的卡牌（数值可调）
+--------
+- 榜一什么东西（Bangyishenmedongxi）：工资 30（10费66伤害土豪卡）
+- 天选打工人（Tianxuandagongren）：工资 15（先古打工主题）
+- 辉卡九（Huikajiu）：工资 20（强力AOE）
+- cards.json 描述已加 "[gold]工资 X。[/gold]" 前缀
+- 其他卡如需工资：只需 override SalaryCost + 改描述
+
+四、注意事项
+--------
+- 新增了 images/ui/salary.png + .import，需要重新导出 pck 才会生效
+- cards.json 描述修改也需要 pck
+- Huikajiu 自身已 override IsPlayable（手牌费用=9检查），内部调 base.IsPlayable，
+  会自动带上工资检查，兼容
+================================================================
+
+补充（2026-08-15）：用户明确不认可擅自给既有卡（榜一/天选打工人/辉卡九）加工资，已全部还原。
+工资体系保留（XiaofujiuCardBase.SalaryCost + SalaryOverlayHelper + SpendResources 扣除），
+仅新增测试卡【碎心者 Suixinzhe】使用工资：
+  - 技能/普通/初始夫白/0费/工资20，获得10格挡（升级14格挡）
+  - src/cardpools/Suixinzhe.cs + 卡池注册 + cards.json SUIXINZHE 条目
+  - 以后工资卡只做新增卡，不要改既有卡
+================================================================
+
+补充2（2026-08-15）用户反馈三处：
+1. 卡面去掉"[gold]工资 X。[/gold]"文字（已有图标提示即可）→ SUIXINZHE.description 已还原为纯格挡描述
+2. 工资图标位置不对 → 参考夫白图标（Position(-100,-300),96x96），工资图标移到其左下方 (-162,-194)
+3. ⚠️ 工资图标颜色异常根因：salary.png.import 的 process/channel_remap 通道重映射写错
+   （green/blue/alpha 都=0=映射到红通道，应为 1/2/3=保留原通道），
+   导致绿/蓝/透明通道全被红通道替换，金色硬币变红/变色。
+   已修复：green=1 blue=2 alpha=3。教训：生成 .import 只复制现有正常文件的配置，别手写 channel_remap。
+================================================================
+
+补充3（2026-08-15）：新增稀有卡【农夫蛇豹 Nongfushebao】
+  - 能力/稀有/初始夫黑/1费/工资150（第二个工资卡）
+  - 打出：获得壁垒(BarricadePower，战士能力) + 选择一张手牌(夫黑/夫白)转夫黄 +
+    征婚4 + 获得22格挡；升级费用-1
+  - 实现要点：CardSelectCmd.FromHand 用 min=0,max=1 防手牌无可转卡卡死；
+    BarricadePower 在 MegaCrit.Sts2.Core.Models.Powers，PowerStackType.Single 施加1层
+  - 卡面描述不写工资文字（图标提示），需重导 pck
+================================================================
+
+补充4（2026-08-15）：新增罕见卡 26-28（均初始夫白）
+  26 甜甜甜 Tiantiantian：技能/0费/工资20，征婚3次（升级4次）
+  27 苦苦苦 Kukuku：技能/1费，获得40工资（升级50）+ 3回合不能征婚
+     「不能征婚」参考虾头楠：PowerCmd.Apply<NoMarryPower>(3层) + SkipNextDurationTick=false
+     （层数=回合数，本回合结束起每回合扣1层 = 3回合不能征婚）
+  28 投资 Touzi：技能/0费/工资20，2回合后获得10-40工资（升级10-50）+ 抽1张
+     延迟效果用自定义 TouziPower（Counter，Amount=2，玩家回合结束 Amount<=1 时触发
+     随机工资 NextInt(Min,Max+1) + 气泡提示 + PowerCmd.Remove；否则 TickDownDuration）
+  均注册卡池 + cards.json。需重导 pck（cards.json 变更）
+================================================================
+
+补充5（2026-08-15）投资卡异常修复：
+  症状：打出投资无效果，卡牌卡屏幕中间
+  根因1：Touzi.OnPlay 直接 new TouziPower() → DuplicateModelException（ModelDb 已注册该类型）。
+         修复：改 PowerCmd.Apply<TouziPower>(...)，它返回实例，再设 MinGain/MaxGain 属性。
+         ⚠️ 教训：不能 new 任何 AbstractModel/PowerModel 派生类，用 ModelDb/Apply<T> 创建。
+  根因2：LocException NO_MARRY_POWER.description not found——powers.json 键写成了 NOMARRYPOWER
+         （没下划线），与类名 NoMarryPower→NO_MARRY_POWER 不匹配。已补正确键。
+  顺带修复：TouziPower/ChangkaoPower/FuhuangscPower 缺本地化键（用脚本扫描 src/powers 全部
+         类名生成 SCREAMING_SNAKE 键 vs powers.json 对比发现）。FuhuangscPower 也一直缺。
+  排查方法：读 C:\Users\开元\AppData\Roaming\SlayTheSpire2\logs\godot.log 尾部。
+================================================================
+
+补充6（2026-08-15）：新增罕见卡【牛马 Niuma】技能/1费/初始夫白
+  - 打出：获得8格挡（升级11）；回合结束时若此牌在手牌，获得10工资（升级15）
+  - 设计意图：转成夫黑（Retain保留手牌）→ 每回合结束持续获得工资
+  - 实现：ShouldReceiveCombatHooks=true + BeforeSideTurnEnd 钩子（玩家回合结束时
+    检查 PileType.Hand.GetPile(Owner).Cards.Contains(this)），只加工资不移动卡牌
+    ——夫黑靠 Retain 自然保留，每回合都触发。⚠️ 不能用 OnTurnEndInHand（会移牌弃牌）
+  - 注意：卡牌钩子里 Owner 是 Player，判活用 Owner.Creature.IsDead
+  需重导 pck（cards.json 变更）
+================================================================
+
+补充7（2026-08-15）：新增罕见卡【放干夫血 Fangganfuxue】技能/0费/初始夫白/工资30
+  - 获得2能量（升级3），用 EnergyVar(2) + PlayerCmd.GainEnergy（参考 Tufaeji）
+  需重导 pck（cards.json 变更）
+================================================================
+
+补充8（2026-08-15）卡牌大全（百科）卡死修复：
+  症状：点百科大全卡死
+  根因：卡牌大全显示 canonical（不可变）卡牌实例，无 Owner。工资体系的
+        SalaryOverlayHelper.UpdateAffordability 访问 baseCard.CurrentSalary → 读 Owner
+        → CardModel.get_Owner() 内部 AssertMutable() 抛异常 → NCardGrid.InitGrid 中断卡死
+  修复：
+    - XiaofujiuCardBase.CurrentSalary 开头 if(IsCanonical) return 0
+    - IsPlayable 用 if(!IsCanonical) 包裹依赖 Owner 的判断
+    - SalaryOverlayHelper.UpdateAffordability 开头 if(baseCard.IsCanonical) return（图鉴不变红）
+  ⚠️ 教训：canonical 模型没有 Owner，访问 Owner 抛 AssertMutable。
+     凡依赖 Owner 的属性（CurrentSalary 等）+ UI 层读取都要先判 IsCanonical。
+================================================================
+
+补充9（2026-08-15）：新增稀有卡【欧金金 Oujinjin】攻击/0费/初始夫白
+  - 扣除当前工资10%（四舍五入），造成等量伤害（最高38，升级50，+12）
+  - 工资花费是动态值（当前工资10%），不走固定 SalaryCost，所以不显示工资图标
+  - 实现：OnPlay 里 landlord.Salary -= cost + DamageCmd.Attack(Math.Min(cost,maxDamage))
+  需重导 pck（cards.json 变更）
+================================================================
+
+补充10（2026-08-15）：新增稀有卡【两元sc Liangyuansc】技能/1费/初始夫白/工资20/消耗
+  - 选择一张手牌（夫黑/夫白）转夫黄（CardSelectCmd.FromHand + FufuCmd.ConvertToYellow）
+  - 消耗（CanonicalKeywords Exhaust）；升级费用-1
+  需重导 pck（cards.json 变更）
+================================================================
+
+补充11（2026-08-15）：新增稀有卡 19-21（均初始夫白）
+  19 殊途同归 Shututonggui：技能/1费/消耗。选一夫黑一夫白（CardSelectCmd 2张，
+     必须一黑一白），第一张转夫黄（FufuCmd.ConvertToYellow），另一张消耗
+     （CardPileCmd.Add Exhaust）。升级移除消耗
+  20 五群来了 Wuqunlaile：技能/1费/消耗。手牌数=10才可打出（override IsPlayable，
+     参考辉卡九；canonical保护返回true），将一张手牌转夫黄。升级移除消耗
+  21 黄皮肤才对 Huangpifucaidei：能力/1费。夫黄获得额外重放1
+     - 实现：XiaofujiuCardBase.UpdateFufuKeywords 里夫黄重放 = 1 + (有HuangpifucaideiPower?1:0)；
+       GetYellowReplayCount() 私有方法；静态 RefreshReplayCounts(Player) 刷新所有夫黄卡
+     - HuangpifucaideiPower AfterApplied/AfterRemoved 时调用刷新（AfterRemoved(Creature oldOwner)）
+     - 升级费用-1
+  BaseReplayCount 属性 setter 有 AssertMutable、非 virtual，不能 override，故用刷新方案
+  需重导 pck（cards.json + powers.json 变更）
+================================================================
+
+补充12（2026-08-15）黄皮肤才对改为可叠加：
+  用户反馈：打多张黄皮肤才对应该每张都额外重放（可叠加），之前只+1
+  修复：
+  - HuangpifucaideiPower StackType Single → Counter（Amount 随打出张数累加）
+  - XiaofujiuCardBase.GetYellowReplayCount() 改 count += power.Amount
+  - 效果：打 N 张 → 夫黄重放 = 1 + N（打2张=3）
+================================================================
+
+补充13（2026-08-15）能力堆叠类型全面检查：
+  用户要求检查其他能力是否有"该叠加却Single/该Single却Counter"的问题
+  检查方法：列出所有Power的StackType + 统计Amount使用次数
+  修正4个开关型能力 Counter → Single（效果不叠加，层数虚增）：
+  - BuweinierersiPower（不为你而死，空类开关）
+  - SanpaidayuqieqiePower（三牌大于一切，布尔开关）
+  - FubaishangongPower（夫白上供，私有字段存金币）
+  - ZhuizongzhishePower（追踪之蛇，空类开关）
+  确认合理（不改）：
+  - FuhuaPower None（夫化开关）、TianxuandagongPower/FuhuangscPower/SlBaiLianPower Single
+  - YayixingtaiPower Counter（2^Amount 翻倍叠加，正确）
+  - ChangkaoPower（父类TemporaryDexterity用Amount）、NoMarryPower（TickDownDuration用Amount）
+  - HuangpifucaideiPower Counter（叠加重放）、TouziPower/LejinwoPower（回合计数）
+  判定经验：开关型能力（有无效果）用 Single/None；数值叠加型（层数影响效果）用 Counter
+================================================================
+
+补充14（2026-08-15）修正补充13的错误判断：
+  用户指出三牌大于一切、夫白上供是"显然应该叠加"的，我之前误判为开关型改成了Single
+  已改回 Counter 并让 Amount 真正参与效果：
+  - SanpaidayuqieqiePower：Counter，Amount=下回合额外抽牌数（每张+1，打2张多抽2）；
+    ModifyHandDraw 用 count + Amount
+  - FubaishangongPower：Counter，Amount=每斩杀金币数；夫白上供卡 OnPlay 改
+    Apply<...>(goldGain,...)（每张+20/升级30），AfterDamageGiven 用 GainGold(Amount)
+  保持 Single 的纯开关型：不为你而死、追踪之蛇（用户未要求叠加）
+  ⚠️ 教训：不要只看"Amount引用次数=0"就判断不叠加——要看卡牌设计语义
+       （多张是否累积效果）。改 Power 堆叠类型前先确认卡牌设计意图
+================================================================
+
+补充15（2026-08-15）全面"获得金币"改"获得工资"（金币是早期设计）：
+  统一方案：新建 SalaryCmd.Gain(player, amount) 统一入口（含爆米加成：每层+15工资）
+  改动：
+  - 新建 src/commands/SalaryCmd.cs：SalaryCmd.Gain 检查 LuckyLandlordRelic + 爆米加成
+  - 加班 Jiaban：GainGold(15)→SalaryCmd.Gain（IntVar Gold→Salary）
+  - 夫白上供 Fubaishangong+Power：斩杀 GainGold(Amount)→SalaryCmd.Gain（GoldGain→SalaryGain）
+  - 天选打工 TianxuandagongPower：GainGold(25)→SalaryCmd.Gain
+  - 打工人 Dagongren / 苦苦苦 Kukuku / 投资 TouziPower / 牛马 Niuma：改走 SalaryCmd.Gain
+  - 爆米 BaomiPower：删掉 ModifyGoldGained Hook，改由 SalaryCmd 内部处理
+    （⚠️ PowerModel.Flash() 是 protected，SalaryCmd 不能调用，已移除闪烁）
+  - 本地化：cards.json（加班/爆米/夫白上供）+ powers.json（爆米/夫白上供/天选打工）金币→工资
+  保留：LuckyLandlordRelic 收租的100/999金币奖励（遗物非卡牌）、差偏认知（监听金币获得非获得）
+  ⚠️ 教训：所有"获得工资"应统一走 SalaryCmd.Gain，避免直接 Salary += 漏掉爆米加成
+================================================================
+
+补充16（2026-08-15）角色待机动画导入（视频→Godot动画）：
+  需求：把"二次元Q版待机视频.mp4"（720x720/24fps/5秒/白幕）转成动画并接入晓夫九战斗视觉
+  流程：
+  1. ffmpeg 抠白幕提取帧：colorkey=0xFFFFFF:0.08:0.05 → 121帧
+  2. Python PIL 降帧(24→12fps, 61帧) + alpha联合边界裁剪
+  3. 合成8x8精灵表 idle_sheet.png
+  4. 生成 SpriteFrames .tres（AtlasTexture 子区域引用）+ 预览场景 idle_preview.tscn
+  5. 接入 scenes/creature_visuals/xiaofujiu.tscn：Visuals/Sprite2D→AnimatedSprite2D，
+     CustomCreatureVisuals._Ready 调 Play("idle")
+  ⚠️ 坑1：SpriteFrames .tres 中 SpriteFrames 必须作为顶层 [resource] 段（animations 直接属于它），
+        不能写成 sub_resource，否则 Godot 解析失败报"缺少依赖项"
+  ⚠️ 坑2：tres 引用纹理的 uid 必须与 .import 里 Godot 实际生成的 uid 一致！
+        Godot 导入 png 时会重新生成 uid，手写 .import 的 uid 会被覆盖 → 对不上就报缺少依赖项。
+        修法：读 .import 里的真实 uid 填进 tres 的 ext_resource
+  ⚠️ 坑3（重要）：白幕视频抠图，角色身上有近20%浅色像素（脸/腿/胳膊近白），colorkey/PIL距离法
+        都会把浅色区域误抠成透明→黑边（脸实心仅77%）。改用 rembg（U2Net AI前景分割）
+        脸实心达99.7%，正确识别角色轮廓而非按颜色。命令：pip install rembg onnxruntime
+  ⚠️ 坑4：AnimatedSprite2D 只设 animation 属性不会自动播放，必须在代码 _Ready 里 Play()。
+        预览脚本 IdlePreview.cs（项目根）专门打印动画列表/加载错误
+  ⚠️ 坑5：tres 手写时不要用 PowerShell 字符串插值生成 region（$x/$y 变量会被错误解析成
+        System.Xml.XmlDocument 等，写坏文件），用 Python 生成最稳
+  产物：images/animations/idle_sheet.png(+import)、animations/idle_sheet.tres、
+        scenes/animations/idle_preview.tscn、IdlePreview.cs、xiaofujiu.tscn 接入
+  注意：新资源需重导 pck；角色大小由 xiaofujiu.tscn 里 AnimatedSprite2D scale(1.1) 调
+================================================================
+
+补充17（2026-08-16）SL相关Bug批量修复 + 全量自查：
+  用户反馈6个bug（大部分集中在SL）：
+  1. 一层任意时刻SL后，下一个事件被替换成直播之路
+     根因：_firstUnknownDone/_liveStreamGiven 是静态字段，SL后丢失
+     修复：LuckyLandlordRelic 加 [SavedProperty] LiveStreamGiven，
+           PullNextEvent/RollRoomTypeFor 补丁改用该持久化标志
+  2. 能力牌夫的女儿受脆弱影响
+     根因：被动格挡 GainBlock 用 ValueProp.Move（无Unpowered），脆弱在
+           props.IsPoweredCardOrMonsterMoveBlock()=true 时生效
+     修复：Move → Move|Unpowered（免疫脆弱）
+  3. 卡牌缺少征婚/夫黄/工资悬浮说明
+     修复：XiaofujiuCardBase 加 HasMarriageEffect 虚属性，ExtraHoverTips 统一加
+           征婚(HoverTipHelper.MarriageTips)+工资(SALARY_MECHANICS) hover；
+           8张征婚卡标记（Buweinierersi/Chidafen/Chunqingnvda/Ktvgewang/
+           Lejinwo/Nongfushebao/Tiantiantian/Zhuizongzhishe）；夫黄hover已有
+  4. 入夫门统计整局转化而非本场
+     根因：CombatConvertCount 静态字段，AfterCardEnteredCombat 重置时机不可靠
+     修复：patch CombatManager.StartCombatInternal，每场战斗开始 Prefix 重置=0
+  5. SL清空卡九计数
+     根因：_counter 非 [SavedProperty]
+     修复：改 [SavedProperty] Counter 属性
+  6. SL清空幸运房东卡牌奖励
+     根因：_pendingCardReward/_pendingPotionReward 非 [SavedProperty]
+     修复：改 [SavedProperty] PendingCardReward/PendingPotionReward
+  自查修复同类问题：
+  - 创世夫柱/求婚戒指：被动格挡也受脆弱（加Unpowered）
+  - KaHaoLe 攻击翻倍标记、MyCustomRelic 完美格挡回合标记：加 [SavedProperty]
+  自查确认无问题：
+  - 小九九本局状态已有 [SavedProperty]；KaRelic/WeddingRing 已有
+  - 卡牌打出格挡受脆弱是正常机制（不改）
+  ⚠️ 教训：mod 的"本局/跨战斗/跨回合"状态必须用 [SavedProperty]（遗物/卡牌属性）；
+      静态字段跨SL丢失、跨战斗残留，只适合纹理缓存等不可变数据。
+      被动触发的格挡（能力/遗物）应加 Unpowered 免疫脆弱，打出的格挡牌保持受脆弱。
+================================================================
+
+补充18（2026-08-16）卡牌悬浮说明全面覆盖（夫黑/夫黄/征婚/工资）：
+  需求：所有带夫黑/夫黄/征婚/工资的卡牌，hover 都要有对应机制说明
+  机制（XiaofujiuCardBase 统一 ExtraHoverTips）：
+  - 夫黑/夫白/夫黄：按当前夫态自动显示（IsFufuXxx）
+  - HasBlackEffect：涉及夫黑机制但当前非夫黑（打出夫黑/手牌夫黑/转化夫黑）→ 额外显示夫黑说明
+  - HasYellowEffect：涉及夫黄机制但当前非夫黄（转化为夫黄/夫黄效果）→ 额外显示夫黄说明
+  - HasMarriageEffect：征婚效果/涉及征婚 → 显示征婚说明（HoverTipHelper.MarriageTips）
+  - ShowSalaryHover：默认=HasSalaryCost；动态工资卡/获得工资卡 override=true → 显示工资说明
+  标记情况：
+  - 征婚(16)：11张调Marry + Zhenghunzhe/Chapianrenzhi(原显式) + Xiatounan/Yayixingtai/Kukuku(不能征婚/征婚翻倍)
+  - 工资：固定SalaryCost卡自动(6) + ShowSalaryHover(8)：Dagongren/Niuma/Jiaban/Baomi/Fubaishangong/
+    Tianxuandagongren/Kukuku/Oujinjin
+  - 夫黄(6)：Niannongshi/Liangyuansc/Wuqunlaile/Shututonggui/Huangpifucaidei/Nongfushebao
+  - 夫黑(16)：Heizhuanbaizhuanhei/Fuheishuohua/Yiciyige/Yaojiajiujia/Fugebaoshe/Muhouheishou/
+    Ktvgewang/Kumingyuanyang/Datouerzi/Sanpaidayuqieqie/Caitoudazhan/Fuhua/Bangyishenmedongxi/
+    Fudenver/Shututonggui/Niannongshi
+  ⚠️ 坑：显式 override ExtraHoverTips 会丢失基类的夫态 hover，一律改用标志位让基类统一加
+================================================================
+
+补充19（2026-08-16）卡牌悬浮说明补充：所有带"转化"的卡牌
+  机制：基类 XiaofujiuCardBase 新增 HasConvertEffect 标志（默认 false）
+  → ExtraHoverTips 统一加 HoverTipHelper.ConvertTips（CONVERT_MECHANICS_TITLE/DESC）
+  黑转白转黑原显式 override ExtraHoverTips 加 ConvertTips → 改为 HasConvertEffect=true（统一）
+  覆盖 16 张：黑转白转黑/入夫门/创世夫柱/念农师/两元sc/五群来了/殊途同归/农夫蛇豹/
+  一次一个/要嫁就嫁/突发恶疾/苦命鸳鸯/十万粉福利/纯情女大/刚做的美甲/榜一什么东西
+  验证：cards.json 描述含"转化"的卡 全部有 HasConvertEffect ✓ 编译通过
+================================================================
+
+补充20（2026-08-16）本地化机制条目置顶 + SL/脆弱同类问题全量自查：
+  A. cards.json 机制说明统一移到文件最前面（方便修改）：
+     FUZU_BLACK/FUZU_WHITE(夫态) → CONVERT(转化) → FUHEI_PLAY(夫黑打出) →
+     MARRIAGE(征婚) → SALARY(工资) → DAGONG(打工) → PERFECT_BLOCK(完美格挡) → FUZU_YELLOW
+     ⚠️ 本地化改动需重导 pck！
+  B. 昨天反馈6个bug的同类问题全量自查：
+     1) 脆弱类（类似夫的女儿）：要嫁就嫁 回合结束被动格挡 GainBlock 用 Move 无 Unpowered
+        → 改 DynamicVars.Block.Props | ValueProp.Unpowered（免疫脆弱）。其余被动格挡
+        （创世夫柱/夫的女儿/求婚戒指）均已修；卡牌主动打出格挡受脆弱=正常
+     2) SL/跨战斗类（类似入夫门/卡九）：卡遗物 KaRelic._turnCounter 回合计数
+        → 无战斗开始重置（跨战斗残留：上把回合3赢，下把第4回合才到3）
+        → 加 BeforeCombatStart 重置=0 + [SavedProperty] TurnCounter 属性
+     3) 确认无问题：所有遗物字段已 [SavedProperty]（LuckyLandlord 7/MyCustom 3/KaHaoLe/
+        KaJiu/KaRelic ProgressCounter/WeddingRing）；Xiaojiujiu 4字段已保存；
+        静态字段仅 CombatConvertCount(已修)/_liveStreamGiven(遗物兜底)/纹理缓存
+     4) Power 内字段（三牌 _bonusDrawNextTurn/九十连胜 _hasTriggeredThisTurn/
+        差偏认知 _marryCount/夫黄sc _shouldApplyVulnerable）：
+        游戏本体 287 个 Power 均无 [SavedProperty]，战斗内 Power 状态 SL 不保存
+        （Encounter 只保存自定义状态）→ 非 mod bug，与游戏一致，不改
+================================================================
+
+补充21（2026-08-16）直播之路选项悬浮显示 + 还原误改：
+  1. 还原误改（用户纠正）：
+     - 要嫁就嫁回合结束格挡：本来就是"打出"效果，受脆弱=正常机制，改回 Move
+     - 卡遗物 KaRelic._turnCounter：跨战斗保留进度是设计意图，还原（去掉 BeforeCombatStart 重置和 TurnCounter [SavedProperty]）
+  2. 直播之路事件选项 hover（EventOption 构造第4参 hoverTips）：
+     - 技术流主播：尖塔糕手 MyCustomRelic.HoverTips + 长考（TitleLocString/Description + HoverTips）
+     - 压抑流主播：婚戒 WeddingRing.HoverTips
+     - 做你自己：卡遗物 KaRelic.HoverTips
+     - 注意：RelicModel.HoverTips 含自身标题+描述；CardModel.HoverTips 不含自身标题/描述，需手动 new HoverTip(card.TitleLocString, card.Description)
+     - canonical 模型 HoverTips 安全（IsFufuXxx 只读 FufuState 不访问 Owner；卡牌大全已验证）
+================================================================
+
+补充22（2026-08-16）卡遗物 SL 进度丢失修复：
+  用户确认：卡遗物 _turnCounter 跨战斗保留进度是设计意图（不加战斗开始重置），
+  但 SL 后进度不应该丢 → 补 [SavedProperty] TurnCounter 属性（原来只有 ProgressCounter 有）
+  AfterSideTurnStart 改走属性 setter（AssertMutable + InvokeDisplayAmountChanged 统一）
+  编译通过
+================================================================
+
+补充23（2026-08-16）幸运房东收租债务卡卡死修复：
+  症状：战斗胜利后直接卡死
+  日志：InvalidOperationException: Attempted to add card CARD.DEBT to pile, but it has no owner!
+        at LuckyLandlordRelic.CollectRent() → AfterCombatVictory → EndCombatInternal
+  根因：CollectRent 付不起房租分支用 ModelDb.Card<Debt>().ToMutable() 创建债务卡，
+        ToMutable 的卡无 owner，CardPileCmd.Add 要求有 owner → 抛异常中断战斗结束流程
+  修复：改用 Owner.RunState.CreateCard<Debt>(Owner)（同直播之路长考的创建方式）
+  自查其他 CardPileCmd.Add：直播之路已用 CreateCard ✓；Kaifuyan/Shututonggui 用战斗内卡(有owner) ✓；
+        Jiaban 用 AddGeneratedCardsToCombat(有owner参数) ✓
+  教训：往牌堆加卡（Add到Deck/Hand/Exhaust）必须用 RunState.CreateCard<T>(owner) 创建，
+        ModelDb.Card<T>().ToMutable() 只适合 RelicCmd.Obtain（会设owner）
+================================================================
+
+补充24（2026-08-16）直播之路长考 hover 改为完整卡牌预览：
+  用户反馈：长考 hover 显示原始文本（{Block} 等动态变量未渲染），看着难受
+  根因：之前手动 new HoverTip(changkao.TitleLocString, changkao.Description)，
+        LocString 的动态变量模板不会在普通 HoverTip 中渲染成数值
+  修复：改用 HoverTipFactory.FromCard<Changkao>()（返回 CardHoverTip 完整卡牌预览，
+        费用/名称/描述/关键字都正常渲染，动态变量显示实际数值，像游戏内卡牌 hover/加班一样）
+  经验：事件选项/UI 里展示卡牌一律用 HoverTipFactory.FromCard<T>()，别手动拼 TitleLocString/Description
+================================================================
+
+补充25（2026-08-16）幸运房东 SL 后"上轮奖励"显示回退"无"修复 + 全工程 SL 显示核查：
+  bug：SL 后遗物 hover 的"上一轮的奖励"变成"无"（只是显示改变，数据没丢）
+  根因：LuckyLandlordRelic 的显示用 DynamicVars（{Salary}/{Rent}/{Countdown}/{LastReward}），
+        而 SL 恢复只反射设置 [SavedProperty] 字段，DynamicVars 重建为 CanonicalVars 默认值，
+        UpdateDynamicVars 只在战斗胜利时调用 → 显示回退默认
+  修复：给 Salary/Rent/CombatCount/LastRewardText 的 setter 同步各自 DynamicVar
+        （SL 恢复时反射 SetValue 会触发 setter → 显示与字段一致；参考 Xiaojiujiu 已有模式）
+  全工程 SL 显示核查（脚本列出全部 19 个 [SavedProperty]）：
+  - 显示字段（DisplayAmount/DynamicVars/hover直接读）均已同步 ✓
+  - 无显示字段（Xiaojiujiu.IncreasedDamage/Block、KaHaoLe.NextAttackDoubled、
+    KaRelic.ProgressCounter、MyCustom.H 标记）SL 恢复字段本身即可，无显示问题 ✓
+  - 静态字段仅战斗计数/纹理缓存 ✓；Power 游戏本体不保存 ✓
+================================================================
+
+补充26（2026-08-16）重做天选打工人：
+  旧设计：1费 16伤，进入/退出"天选打工"状态（攻击两次）
+  新设计：1费 造成13点伤害，获得30工资；升级：18伤害，费用-1（0费）
+  - 移除 TianxuandagongPower 机制（TianxuandagongPower.cs 保留未删，已无引用）
+  - 工资走 SalaryCmd.Gain（含爆米加成）
+  - 保持 Ancient 稀有度 + CanBeGeneratedInCombat=false（ArchaicTooth 超越升级 打工人→天选打工人）
+  - 费用升级：CanonicalEnergyCost => IsUpgraded ? 0 : 1
+  ⚠️ 本地化改动（cards.json description）需重导 pck！
+================================================================
+
+补充27（2026-08-16）天选打工人费用-1修复：
+  用户反馈升级后没有费用-1
+  根因：之前用 CanonicalEnergyCost => IsUpgraded ? 0 : 1 控制升级费用，
+        但 CardModel.EnergyCost 首次访问时缓存（_energyCost），升级后不刷新 → 不生效
+  修复：改用游戏标准做法 OnUpgrade 里 EnergyCost.UpgradeBy(-1)（直接改缓存对象 _base）
+  自查：Fuhua/Gangzuodemeijia/Sanpaidayuqieqie/Tuiding 4张卡都是"CanonicalEnergyCost + 
+        OnUpgrade里 UpgradeBy(-1)"双保险，费用-1生效（UpgradeBy 是有效路径），无需改
+  教训：升级费用变化一律用 OnUpgrade 里 EnergyCost.UpgradeBy(-1)，别用 CanonicalEnergyCost 覆盖
+================================================================
+
+补充28（2026-08-16）重做差偏认知：
+  旧：获得金币时，征婚4（升级6）【PlayerCmd_GainGold_Patch 触发】
+  新：战斗中获得工资时，征婚3；升级：征婚4
+  实现：
+  - 触发源从 GainGold patch 移到 SalaryCmd.Gain（所有获得工资的统一入口）
+  - 条件：CombatManager.Instance.IsOverOrEnding == false（只在战斗中）且有 ChapianrenzhiPower
+  - TaskHelper.RunSafely(cp.TriggerMarry(player)) 异步触发（每层征婚 MarryCount 次）
+  - 删除 PlayerCmd_GainGold_Patch（获得金币不再触发）
+  - MarryCount 3（升级+1→4）；ChapianrenzhiPower 默认 3
+  - 本地化 cards.json + powers.json 描述改为"战斗中获得工资时，征婚{MarryCount:diff()}次。"
+  ⚠️ 本地化改动需重导 pck！
+================================================================
+
+补充29（2026-08-16）新遗物"我香炉了"：
+  效果：同卡九（每回合+1能量+1抽牌），改为每6回合触发
+       转化最多推到5，只有回合开始自动+1能突破6触发；Counter [SavedProperty]
+  获取：遇见欧罗巴斯选择"欧罗巴斯之触"（TouchOfOrobas）后，卡九替换为我香炉了
+  实现：
+  - 新建 XiangluleRelic.cs（Starter 稀有度，不入随机池）
+  - patch TouchOfOrobas.RefinementUpgrades getter：添加 KaJiuRelic → XiangluleRelic
+    （游戏本体机制：起始遗物 → 升级版遗物映射，AfterObtained 时 RelicCmd.Replace）
+  - 角色初始遗物 KaJiuRelic 在 LuckyLandlordRelic 前（FirstOrDefault(Starter) 识别卡九）✓
+  - 遗物池注册 + relics.json 本地化（XIANGLULE_RELIC）
+  ⚠️ 本地化改动需重导 pck！
+================================================================
+
+补充30（2026-08-16）今日工作总结（汇总）：
+  ★ 悬浮说明系统：
+     - 基类 XiaofujiuCardBase 统一 ExtraHoverTips（夫态自动 + HasMarriageEffect/HasBlackEffect/
+       HasYellowEffect/HasConvertEffect/ShowSalaryHover 标志位）→ 覆盖征婚16/夫黑16/夫黄6/转化16/工资14
+     - cards.json 机制说明全部置顶（FUZU→CONVERT→FUHEI_PLAY→MARRIAGE→SALARY→DAGONG→PERFECT_BLOCK→FUZU_YELLOW）
+     - 直播之路选项 hover：EventOption 第4参，遗物用 ModelDb.Relic<T>().HoverTips，
+       卡牌用 HoverTipFactory.FromCard<T>()（完整卡牌预览，动态变量正常渲染）
+  ★ SL 相关修复：
+     - 直播之路重复触发（遗物 [SavedProperty] 兜底）
+     - 卡九计数/幸运房东奖励/卡遗物回合进度 → [SavedProperty]
+     - 幸运房东 SL 后显示回退（setter 同步 DynamicVars）
+     - 全工程 19 个 [SavedProperty] 显示核查通过
+  ★ Bug 修复：
+     - 幸运房东收租债务卡无 owner 卡死（改 RunState.CreateCard）
+     - 天选打工人升级费用-1 不生效（改 EnergyCost.UpgradeBy）
+  ★ 卡牌/遗物重做新增：
+     - 重做天选打工人（13伤+30工资，升级18伤0费）
+     - 重做差偏认知（战斗中获得工资时征婚3/升级4）
+     - 新遗物"我香炉了"（卡九升级版每6回合，欧罗巴斯之触替换卡九）
+  ⚠️ 待办：以上涉及本地化改动的（hover 文案/描述/新遗物）需重导 pck 生效
+================================================================
+
+补充31（2026-08-16）水淹金库（SunkenTreasury）卡死修复：
+  用户反馈：sunken_treasury / lantern_key 事件卡死（古早bug，与晓夫九专属事件无关）
+  水淹金库原因（用户确认）：事件 SECON_CHEST 选项内心活动用
+    LocString("characters", 角色Id + ".goldMonologue")，晓夫九缺该键 → LocException 卡死
+  修复：characters.json 添加 XIAOFUJIU.goldMonologue："[sine]这些财富能刷更多的SC了……[/sine]"
+  灯火钥匙：用户反馈已自行消失，暂不处理
+  ⚠️ 本地化改动需重导 pck！
+================================================================
+
+补充32（2026-08-16）吃大份卡死修复（游戏API版本不匹配）：
+  症状：打出吃大份（Chidafen）卡死
+  日志：System.MissingMethodException: Method not found: 
+        'CardCmd.Exhaust(PlayerChoiceContext, CardModel, Boolean, Boolean)'
+  根因：游戏一直是新版（Steam版 DLL 8/15 9.7MB），但 mod 的 libs\sts2.dll 是旧反编译版
+        （7/18 9.6MB）编译。新版 CardCmd.Exhaust 返回类型从 Task → Task<CardPileAddResult?>
+        （签名变了），旧二进制引用的旧签名在新版 DLL 不存在 → JIT MissingMethodException
+  修复：libs\sts2.dll 换成游戏运行时同版（data_sts2_windows_x86_64\sts2.dll 9.7MB），
+        重新编译 mod（0错误）→ 所有引用签名与运行时匹配
+  说明：mod 代码 await CardCmd.Exhaust(ctx, card) 调用方式兼容新版（2参+可选参数+await），
+        无需改代码；编译通过=无其他API不匹配隐患
+  ⚠️ 教训：mod 的 libs\sts2.dll 必须与游戏运行时 DLL 同版！E:\sts2 是反编译参考代码，
+        游戏更新后要同步 libs（从游戏 data_sts2_windows_x86_64\sts2.dll 复制）再编译
+================================================================
+
+补充33（2026-08-16）战斗动画导入（攻击/技能/能力/受击/死亡 五视频→Godot动画）：
+  需求：E:\我的文件 下"攻击、技能、能力、受击、死亡"五个 mp4（2160x2160/60fps/白幕）做成动画
+  流程（参考补充16 idle）：
+  1. ffmpeg 提帧 scale=720:720
+  2. rembg u2net 抠图（白幕角色浅色像素多，不能用 colorkey）
+  3. 降帧 60→15fps（每4帧取1），union bbox 裁剪 + 缩放到高320 + 8列多行 spritesheet
+     （⚠️ 动作位移大导致单行超宽，skill 26帧单行18720px 超 GPU 16384 限制 → 必须多行）
+  4. 生成 5 个 png + .import（复制 idle_sheet.png.import 模板改 source_file）
+  5. 生成合并动画资源 animations/xiaofujiu_anims.tres：
+     6个动画 idle(12fps循环,61帧) + attack/skill/power/hurt/death(15fps非循环)
+     ⚠️ 引用全部用 path-only（不带 uid）——Godot 生成 uid 无法预知，path 引用最稳；
+        合并 idle 帧时 ext id 从 "1_sheet" 改 "1_idle"（原 idle_sheet.tres 的 id 不能复用）
+  接入：
+  - xiaofujiu.tscn AnimatedSprite2D 改引用 xiaofujiu_anims.tres（path-only）
+  - CustomCreatureVisuals：PlayAction(name) + AnimationFinished 非循环播完回 idle（死亡保持末帧）
+  - patch NCreature.SetAnimationTrigger：晓夫九玩家把触发器映射到动画
+    Attack→attack / Cast→skill / PowerUp→power / Hit→hurt / Dead→death / Idle→idle
+  产物：images/animations/{attack,skill,power,hurt,death}_sheet.png(+import)、
+        animations/xiaofujiu_anims.tres、脚本在 _anim_work/（下划线目录 Godot 忽略）
+  ⚠️ 新资源需重导 pck！
+================================================================
+
+补充34（2026-08-16）战斗动画与待机对齐调整：
+  问题：5个战斗动画（帧~360x320）与 idle（帧179x282）切换时角色位置跳动
+  根因：各动画帧尺寸不同 + 角色锚点（脚底中心）相对帧中心位置不同
+  修复：SpriteFrames 每帧加 offset（同动画所有帧相同），让角色脚底中心与 idle 对齐
+        attack(-15.1,-19) skill(-2.6,-19) power(5.3,17) hurt(23.5,-14) death(3.1,-14) idle(0,0)
+  手动微调：改 animations/xiaofujiu_anims.tres 对应动画帧的 "offset": Vector2(x,y)
+        x正右负左，y正下负上（像素，受 AnimatedSprite2D scale 1.1 放大）
+  注意：AnimatedSprite2D centered=true 时 offset 是相对帧中心的显示偏移
+  ⚠️ 需重导 pck！
+================================================================
+
+补充35（2026-08-16）动画统一大小/位置（重做，替换 offset 方案）：
+  问题：SpriteFrames 帧的 offset 字段在 Godot 4 不生效（根本没变化），需彻底统一
+  方案：所有 6 个动画（含 idle）统一画布 + 统一角色锚点
+  处理：
+  - idle 从 idle_sheet 提取（179x282→缩放300高），战斗动画整帧缩放到目标高（保留位移）
+  - 所有动画帧统一尺寸 350x390（8列多行），生成 u_{anim}.png
+  - 角色脚底中心对齐画布同一点：内容脚底对齐 y=300（地面线），水平按各动画脚底中心平均对齐
+  - 站姿动画角色高统一300（idle/attack/skill/power/hurt）；death 倒地保持 220
+  - 重新生成 xiaofujiu_anims.tres（无 offset，帧同尺寸即对齐）
+  - xiaofujiu.tscn AnimatedSprite2D position (-7,36)（适配新帧 350x390，脚底对齐原位置），animation 回 idle
+  清理：删除旧 attack/skill/power/hurt/death_sheet.png（不再引用）
+  ⚠️ 注意：tres uid 已用 Godot 生成的 uid://c687x5eocsjsg（用户打开过项目）；需重导 pck！
+  微调：角色整体位置在 Godot 里调 AnimatedSprite2D position；各动画已帧内对齐无需再调
+================================================================
+
+补充36（2026-08-16）动画对齐改第一帧锚点（用户反馈平均锚点差异仍大）：
+  用户思路：只需统一第一帧的位置和大小
+  重做：各动画（u_*.png 350x390 平均版）重新排列——第一帧内容脚底中心对齐画布同一点
+  - 统一画布 384x522，地面线 y=390
+  - 各动画第一帧脚底中心都对齐 (192, 390)，后续帧保留相对位移
+  - 验证：6 动画第一帧 bbox 脚底均 y≈389-390，水平中心 x≈192 ✓
+  - 预览图 _anim_work/first_frames_preview.png
+  - xiaofujiu.tscn AnimatedSprite2D position (-7,12)（帧 384x522 适配）
+  ⚠️ 需重导 pck！
+  手动微调：
+  - 整体位置：xiaofujiu.tscn AnimatedSprite2D position
+  - 单动画：各动画第一帧已对齐，如需微调告诉我哪个偏多少，或 Godot SpriteFrames 编辑器里拖帧
+================================================================
+
+补充37（2026-08-16）动画大小统一（第一帧锚点 + 角色高度统一）：
+  根因：战斗视频里角色比 idle 大 2 倍（720帧中角色高564 vs idle 282）→ 之前大小不同
+  方案：从原始视频重新处理（rembg），每动画 union 裁剪后按第一帧角色高缩放
+  - 站姿+death 全部缩放到第一帧角色高300（death 也缩放0.532，之前误设不缩放导致画布爆）
+  - 第一帧脚底中心对齐画布 (CW/2, GROUND_Y=340)，统一画布 735x384
+  - 最终验证：6 动画第一帧 bbox 完全一致（x[278,457] y[42,338] 高~296）✓
+  - 最终预览 _anim_work/final_preview.png
+  - xiaofujiu.tscn AnimatedSprite2D position (-7,-4)
+  ⚠️ 教训：脚本重复运行输入尺寸会被前次输出覆盖搞坏（SRC 尺寸写错 → 画布爆）；
+      改动应一步到位从原始源重跑。需重导 pck！
+================================================================
+
+补充38（2026-08-16）征婚气泡提示（随机文本）：
+  需求：血量1征婚时逻辑正常但无视觉反馈，每次征婚加气泡提示随机一句：
+    "用萎靡给蛇花小姐减去8点力量" / "征婚，要求：女方尖塔500h+" /
+    "真不压抑啊，我哪里压抑了" / "她真好看，想吃她的大份"
+  实现：ZhengHunCmd.Marry 里 HP 扣除后调用 ShowMarryBubble(player)——
+        GD.RandRange 随机选一句，NSpeechBubbleVfx.Create 挂到 NCombatRoom CombatVfxContainer
+  ⚠️ 用户偏好：气泡文本是 mod 文案，直接写死在代码里（非本地化，用户明确给文本）
+================================================================
+
+补充39（2026-08-16）榜一什么东西 减费修复（卡组里的牌不订阅转化事件）：
+  症状：卡组里的榜一（10费）打不出减费；DevConsole 添加的榜一（9费）正常
+  根因：AfterCardEnteredCombat 只对"新加入战斗牌堆"的卡触发（CardPileCmd 里
+        oldPile==null 才触发），卡组初始的牌不触发 → 从不订阅夫黑→夫白事件
+  参考：Ironclad Stomp 用 BeforeCardPlayed（每打必触发的可靠 hook）的启发，
+        榜一改用双保险订阅：
+        a) AfterCardEnteredCombat：控制台/生成加入时订阅（原有）
+        b) AfterCardDrawn：卡组牌抽到手牌时订阅（新增，覆盖卡组场景）
+        c) EnsureSubscribed/Unsubscribe 用 _subscribed 标志去重，防止
+           弃牌→重抽后重复订阅导致一次转化减多次费
+        d) AfterCombatEnd 统一退订
+  验证：战斗开始时卡组里的榜一抽到手后即订阅，此后每次夫黑→夫白减费1
+  ⚠️ 教训：卡牌"进入战斗"的可靠 hooks 不覆盖卡组初始牌；需要靠抽牌/打出等
+          每张卡都经历的时机来建立订阅
+================================================================
+
+补充40（2026-08-16）新增两个专属药水：
+  1) 工资药水 SalaryPotion（罕见 Uncommon，AnyTime 战斗内外可用）：
+     使用后获得 50 工资，走 SalaryCmd.Gain 统一入口（含爆米加成/差偏认知触发）
+  2) 夫黄药水 FufuYellowPotion（稀有 Rare，CombatOnly 仅战斗可用）：
+     从手牌选一张夫黑/夫白牌 → 本场战斗转化为夫黄
+     实现：CardSelectCmd.FromHand + CardSelectorPrefs(prompt, 1, 1) 单选，
+           filter 限定 IsFufuBlack||IsFufuWhite，选中后 FufuCmd.ConvertToYellow
+  注册：xiaofujiupotionpool.GenerateAllPotions 加 ModelDb.Potion<T>()（3个专属药水）
+  本地化：potions.json 各加 title/description/selectionScreenPrompt（改本地化需重导 pck）
+  ⚠️ 药水无专属图标资源（同征婚药水）：atlas 小图缺失仅空白，大图 fallback missing_potion.png，
+     不崩溃；如需图标后续补 potion_atlas.sprites/<entry>.tres + potions/large/<entry>.png
+================================================================
+
+补充41（2026-08-16）新增4个专属遗物：
+  1) nosl高手 NoSlGaoShou（Common）：战斗开始（玩家第一回合 AfterPlayerTurnStart +
+     TurnNumber==1）对所有敌人造成 {Damage} 点伤害，之后伤害+1。
+     ⚠️ 累计值用普通字段（非 [SavedProperty]）→ SL 后清空回默认1（用户需求）
+     伤害参考 MercuryHourglass：CreatureCmd.Damage(ctx, CombatState.HittableEnemies,
+     DynamicVars.Damage, Owner.Creature)，DamageVar(1m, ValueProp.Unpowered)
+  2) 尖塔压抑 JianTaYaYi（Uncommon）：每3回合征婚2（AfterPlayerTurnStart 计数）。
+     ⚠️ 计数用 [SavedProperty] → 跨战斗保留、SL 不清空（用户需求）；ShowCounter 显示倒计时
+  3) 恶魔契约 EMoQiYueRelic（Rare）：付不起房租时取消收租1次。
+     实现：LuckyLandlordRelic.CollectRent 付不起分支调 EMoQiYueRelic.TryConsumeSkip(player)
+     （静态方法查玩家遗物 + [SavedProperty] Used 防重复），true 则跳过债务惩罚显示气泡
+  4) 花嫁观众 HuaJiaGuanZhong（Shop）：每场战斗第一次夫黑→夫白转化时直接打出该牌。
+     实现：BeforeCombatStart 订阅 XiaofujiuCardBase.FufuBlackToWhiteConverted（_subscribed
+     去重），AfterCombatEnd 退订；_usedThisCombat 每场重置；CardCmd.AutoPlay(ThrowingPlayerChoiceContext,
+     card, null)（自动打出免费）。
+     ⚠️ 防双重打出：AutoPlay 前检查卡仍在手牌——要嫁就嫁回合结束是先移入 Play 堆再转化
+     （OnTurnEndInHandWrapper 流程），那时卡不在手牌直接跳过
+  ⚠️ 经验：RelicModel 在 MegaCrit.Sts2.Core.Models；RelicRarity 在 Entities.Relics；
+     CombatRoom 在 MegaCrit.Sts2.Core.Rooms；TaskHelper.RunSafely 只接受 Task（不是 lambda），
+     需先调私有 async 方法拿 Task
+================================================================
+
+补充41.1（2026-08-16）榜一减费二次修复（改用 BeforeCombatStart 订阅）：
+  症状：AfterCardDrawn 方案（补充39）仍不降费（玩家反馈）
+  根因分析：AfterCardDrawn 依赖"抽牌"时机——首回合初始手牌/SL 场景可能不触发
+  关键发现：Hook.BeforeCombatStart → runState.IterateHookListeners(combatState) 会遍历
+            **player.Deck.Cards（卡组里的牌）+ combatState.IterateHookListeners()
+            （战斗牌堆全部卡）**，所以卡组里的榜一战斗开始时必收到 BeforeCombatStart
+  修复：Bangyishenmedongxi override BeforeCombatStart() → EnsureSubscribed()
+        （与 AfterCardEnteredCombat/AfterCardDrawn 三重保险，EnsureSubscribed 去重）
+  覆盖：卡组初始牌/首回合手牌/SL 后恢复战斗（重走 StartCombatInternal→BeforeCombatStart）
+  ⚠️ 经验：卡牌"战斗开始"最可靠订阅点 = BeforeCombatStart（全遍历 deck+战斗牌堆），
+         不是 AfterCardEnteredCombat（只新加入）也不是 AfterCardDrawn（依赖抽牌时机）
+================================================================
+
+补充42（2026-08-21）桌面"晓夫九mod.docx"卡牌效果同步（python-docx 修改）：
+  文档：C:\Users\开元\Desktop\晓夫九mod.docx（设计文档，卡牌描述过时）
+  工具：python-docx（pip install python-docx），读段落+表格，set_text 保留首 run 格式，
+        删除段落用 p._element.getparent().remove(p._element)
+  修改（共 25 处替换 + 3 处删除 + 1 处初始遗物）：
+  初始卡：打工人=8伤+20工资（升级11伤/30工资），删除打工状态机制；
+          黑转白转黑=5格挡+切换1张手牌（升级费用-1）；
+          夫黑说话=5格挡+打1张夫黑；哦牛批=固有
+  普通卡：情歌弹唱升级=7伤+2易伤；夫白貌美升级=19格挡（原21错）
+  罕见卡：加班=15工资（原金币）；爆米/夫白上供=工资（原金币）；
+          踩头大战=10伤/升级12（原12/14错）
+  稀有卡：内马尔的欣慰升级=费用-1+限10张；辉卡九删"攻击后返回手牌"；
+          农夫蛇豹升级=费用-1（原"花费120工资"错）
+  先古卡：差偏认知=征婚3/升级4（原4/6错）+工资；天选打工人=13伤+30工资
+          （原打工状态机制，实际升级18伤+0费）
+  初始遗物：尖塔高手 → 卡九、幸运房东（尖塔糕手已注释）
+  ⚠️ 教训：批量替换用"唯一子串"会误伤（"升级：造成14点伤害"同时命中踩头/战斗之鹰、
+          "升级：2张"命中黑转白转黑/开夫眼），第二遍用前段上下文精确定位修复；
+          辉卡九整段替换把"手牌费用之和9"条件误删，需补回
+  ⚠️ 用户偏好：改的是文档（docx），不动游戏代码/卡牌设计，只把文档对齐到实际效果
+================================================================
+
+补充43（2026-08-23）保留(Retain)误删修复 + 夫黑/夫黄作为卡面关键字词条：
+  症状：自带保留的卡（如绝不认输）和附魔保留（Steady）在夫白状态下保留失效
+  根因：XiaofujiuCardBase.UpdateFufuKeywords 夫白时无脑 RemoveKeyword(Retain)，
+        但 LocalKeywords = CanonicalKeywords + AddKeyword − RemoveKeyword，
+        把卡牌自带保留 + 附魔保留（Steady 用 AddKeyword(Retain) 加到 Local）全删了
+  修复（XiaofujiuCardBase.cs）：
+    - 加 _fufuRetainAdded 标志记录"夫态是否主动添加过 Retain"
+    - 夫黑/夫黄：仅当 Keywords 无 Retain 时才 AddKeyword 并标记（不覆盖自带/附魔）
+    - 夫白：仅当 _fufuRetainAdded 时 RemoveKeyword 并清标记（自带/附魔保留保留）
+  显示层（用户建议：把夫黑/夫黄作为关键字，像保留/消耗/虚无一样）：
+    - patch CardModel.GetDescriptionForPile（private，用 AccessTools.Method +
+      反射拿 private 嵌套枚举 DescriptionPreviewType 定位）
+    - Postfix 对 XiaofujiuCardBase：卡面描述前插 [gold]夫黑/夫黄[/gold]。词条
+      （夫白不显示）；夫黑/夫黄时游戏自带的"保留"词条仍自动显示
+  ⚠️ 教训：CardKeyword 枚举固定（None/Exhaust/Ethereal/Innate/Unplayable/Retain/
+      Sly/Eternal），无法加夫黑/夫黄枚举值；"状态性"效果只能靠 patch 渲染层显示词条，
+      行为仍由 FufuState 驱动。卡面词条格式 [gold]标题[/gold]。由 GetCardText 生成
+  ⚠️ 边界：夫黑时若夫态先加 Retain（_fufuRetainAdded=true）之后又附魔保留，转白会连
+      附魔的一起删（极端场景，附魔一般在战斗外固定，可接受）
+================================================================
+
+补充44（2026-08-23）角色死亡动画不触发修复：
+  症状：晓夫九死亡时没有死亡动画（攻击/受击等动画正常）
+  根因：游戏 NCreature.StartDeathAnim 里的 SetAnimationTrigger("Dead") 只在
+        _spineAnimator != null（有 Spine 动画）时才调用；晓夫九用 AnimatedSprite2D
+        （CustomCreatureVisuals）无 Spine → 收不到 "Dead" 触发器 → 不播 death 动画。
+        且 AnimDie 无 spine 分支不等待、玩家 shouldRemove=false 不移除角色
+  修复（kyxiaofujiuInitializer.cs 补丁）：
+    - patch NCreature.StartDeathAnim Prefix：对晓夫九（CustomCreatureVisuals）直接
+      visuals.PlayAction("death")，绕过 _spineAnimator 判断
+    - 玩家死亡 shouldRemove=false，角色不立即移除，death 动画可播完保持最后一帧
+      （CustomCreatureVisuals.OnAnimationFinished 里 death 保持末帧）
+  相关：攻击/受击走 CreatureCmd.cs:998 creatureNode.SetAnimationTrigger（不依赖 spine）
+        所以正常；死亡是唯一走 StartDeathAnim 的，需单独补
+  death 动画 8 帧 @15fps ≈ 0.53s（u_death.png 735x384）
+  ⚠️ 若死亡动画播不全（结算切太快），可再给 StartDeathAnim 返回 death 时长
+      （deathAnimLength 目前只在怪物侧用，玩家改返回值影响小）
+================================================================
+
+补充45（2026-08-23）十万粉福利改为可选转化：
+  需求：原"回合开始强制转化1张"不能跳过；改为可自定义选是否转化和数量（<最大）
+  修改：
+  - ShiwanfenfuliPower.AfterPlayerTurnStart 的 CardSelectorPrefs 由 (prompt, toSelect)
+    （min=max 强制选满）改为 (prompt, 0, toSelect)（min=0 可跳过，max 可少选）
+  - cards.json SHIWANFENFULI.description："回合开始时，可以转化手牌。升级后初始
+    变为夫白，可直接打出。"
+  - powers.json SHIWANFENFULI_POWER.smartDescription："回合开始时，可以选择转化
+    最多 {Amount} 张手牌。"
+  ⚠️ 本地化改动需重导 pck！
+================================================================
+
+补充45.1（2026-08-23）转化选择界面排除夫黄（夫黄不可再转化）：
+  症状：选择要转化的牌时夫黄仍可选，但转化无效果
+  修改：5 处"选择转化"界面的 filter 统一加 !fc.IsFufuYellow：
+    - ShiwanfenfuliPower（候选+选择，用户报告）
+    - Heizhuanbaizhuanhei 黑转白转黑
+    - Kumingyuanyang 苦命鸳鸯
+    - Shututonggui 殊途同归
+  其余已正确（选夫白/夫黑/黑白组合的都排除夫黄）
+  ⚠️ 未改：突发恶疾 Tufaeji 的随机转化（从 IsFufu 随机选，可能随机到夫黄但用户未提）
+  ⚠️ 纯代码改动，无需重导 pck
+================================================================
+
+补充46（2026-08-23）尖塔糕手补"完美格挡"悬浮说明：
+  症状：遗物"尖塔糕手"（MyCustomRelic）缺少对"完美格挡"的悬浮显示
+  修复：MyCustomRelic 加 override ExtraHoverTips => HoverTipHelper.PerfectBlockTips
+        （复用 utils/HoverTipHelper.cs 的完美格挡提示，本地化键
+        PERFECT_BLOCK_MECHANICS_TITLE/DESC 已在 cards.json，无需新增）
+  ⚠️ 纯代码改动，无需重导 pck
+================================================================
+
+补充47（2026-08-23）刚做的美甲+一次一个配合卡死修复：
+  症状：两卡配合打出直接卡死
+  日志（C:\Users\开元\AppData\Roaming\SlayTheSpire2\logs\godot.log）：
+    [ERROR] Collection was modified; enumeration operation may not execute.
+      at Gangzuodemeijia.OnPlay line 33（foreach 手牌时集合被改）
+    前置：[INFO] YiciyigePower: 夫黑→夫白转换触发 → 抽牌
+  根因（两层）：
+    1) Gangzuodemeijia.OnPlay 用 foreach 遍历"活"手牌集合（hand.Cards），
+       转化触发 YiciyigePower（一次一个）异步抽牌 → 手牌集合被修改 → 枚举异常
+    2) YiciyigePower.OnFufuBlackToWhiteConverted 是 async void，
+       事件回调里 await 抽牌，未捕获异常会中断/卡死
+  修复：
+    1) Gangzuodemeijia：foreach 前 hand.Cards.ToList() 快照（转化不影响快照枚举）
+    2) YiciyigePower：async void → 事件回调里 TaskHelper.RunSafely(私有async DrawCards())
+  ⚠️ 教训：遍历 CardPile.Cards 做效果且效果会触发抽牌/移牌时，必须快照；
+      静态事件回调里异步操作绝不能用 async void（用 TaskHelper.RunSafely）
+================================================================
+
+补充48（2026-08-23）要嫁就嫁+一次一个：回合结束抽的牌保留在手牌：
+  症状：要嫁就嫁（夫黑）回合结束转化打出 → 触发一次一个抽1张 → 该牌被立即弃掉（白抽）
+  需求：多抽的牌保留在手牌（下回合可用）
+  机制调研：
+    - 回合结束弃手牌在 FlushPlayerHand（CombatManager）：非 ShouldRetainThisTurn 的弃
+    - ShouldRetainThisTurn = Keywords含Retain || HasSingleTurnRetain（GiveSingleTurnRetain 设置）
+    - 顺序：DoTurnEnd（要嫁就嫁转化抽牌）→ EndPlayerTurnPhaseTwoInternal（FlushPlayerHand
+      弃牌判断）→ EndEnemyTurnInternal（EndOfTurnCleanup 重置 HasSingleTurnRetain=false）
+    - 所以 GiveSingleTurnRetain 在 FlushPlayerHand 前设置 → 保留成功
+  实现：
+    - YiciyigePower 加静态标志 RetainDrawnAtCombatEnd；DrawCards 抽牌后若标志 true
+      给抽到的每张 GiveSingleTurnRetain()
+    - patch CombatManager.DoTurnEnd Prefix：设标志 true
+    - patch CombatManager.EndPlayerTurnPhaseTwoInternal Postfix：ContinueWith 清 false
+      （⚠️ 清除必须放 FlushPlayerHand 之后：一次一个抽牌是异步的，DoTurnEnd 结束就清
+      有竞态，DrawCards 完成时标志可能已被清 → 用 phase two 完成再清）
+  ⚠️ 经验：GiveSingleTurnRetain 让牌"本回合保留"（弃牌阶段不弃），EndOfTurnCleanup 重置；
+      回合结束异步效果要保留标志须覆盖到 FlushPlayerHand 之后
+================================================================
+
+补充49（2026-08-23）KTV歌王：丢弃成功才征婚：
+  症状：不丢弃夫黑卡也能征婚（取消选择/没有夫黑时仍征婚）
+  根因：Ktvgewang.OnPlay 丢弃有条件（card != null）但征婚无条件执行
+  修复：征婚移入 if (card != null) 块内（丢弃成功才征婚）
+  ⚠️ 纯代码改动，无需重导 pck
+================================================================
+
+补充50（2026-08-23）投资能力 smartDescription 显示原始文本修复：
+  症状：能力"投资"直接显示 {MinGain}-{MaxGain} 带符号文本，未替换数值
+  根因：TouziPower.smartDescription（powers.json）引用 {MinGain}-{MaxGain}，
+        但该 Power 没声明 CanonicalVars，MinGain/MaxGain 只是普通自动属性
+        → DynamicVars 里没有这两个变量 → 不替换显示原文
+  修复（TouziPower.cs）：
+    - 加 CanonicalVars：IntVar MinGain(10)/MaxGain(40)
+    - MinGain/MaxGain 改字段+属性，setter 同步 DynamicVars（Apply 后赋值即更新显示）
+  ⚠️ 经验：Power 的 smartDescription 用 {Var} 必须声明 CanonicalVars + setter 同步
+      （同遗物 DynamicVars 显示铁律）；卡牌描述正常是因为 Touzi.cs 卡已声明 MinGain/MaxGain
+  ⚠️ 本地化文本未改，无需重导 pck
+================================================================
+
+补充51（2026-08-23）平衡性调整（第一批，不含重做项）：
+  2 夫黑说话：格挡 5→6
+  3 夫黄SC：格挡 8→11（升级+3=14）
+  4 农白：所有敌人力量 2→4（描述加"本回合"）
+  5 夫白貌美：升级格挡 19→20（+3改+4）
+  6 豹黑：升级由费用-1 改为抽3张（保持1费）；加 DrawCount 动态变量使描述正确
+  8 大厂程序员：征婚1→2（升级伤害+3 不变）
+  9 KTV歌王：丢弃夫黑→转化夫黑（FufuCmd.Toggle，卡保留在手牌）；征婚 3/升4→2/升3
+  11 你怎么还在这：格挡 5→7、失力量 2→1（升级格挡 7→9，征婚4→5 不变）
+  12 基米：易伤→虚弱（VulnerableAmount→WeakAmount 变量，Apply<WeakPower>）
+  14 火堆零点五：恢复 10→5（HuoduilingdianwuPower.Heal）
+  本地化：cards.json 同步（NONGBAI/DACHANGCHENGXUYUAN/KTVGEWANG/JIMI/
+         HUODUILINGDIANWU/BAOHEI 描述）→ 需重导 pck
+  ⚠️ 待做：黑转白转黑/压抑/苦命鸳鸯/辣个 四项重做（用户要求第二批）
+  ⚠️ 本次编译通过但 DLL 部署被运行中的游戏锁定，需关游戏后重新 build
+================================================================
+
+补充52（2026-08-23）平衡性调整第二批：4 张重做卡：
+  1 黑转白转黑：1费→0费，格挡5→3，选1张→选至多1张（可跳过），升级：至多2张
+    （CardSelectorPrefs(prompt,0,max)；CardCount IntVar 1→升级2）
+  7 压抑：攻击 1费→3费，伤害15→35（升级45），改为"若没有击杀敌人则获得2层
+    虚弱+易伤"（attack.Results.SelectMany.Any(r=>r.WasTargetKilled) 判断击杀）
+  10 苦命鸳鸯：0费→1费，由"选一黑一白分别转化"→"从抽牌堆随机取一张夫黑和一张
+    夫白加入手牌"，消耗（升级移除）
+  13 辣个：伤害范围 4-18/升8-22 → 4-12/升4-18（升级只加 MaxDamage +6），
+    新增"获得一半数量的格挡"（damage/2 向下取整，CreatureCmd.GainBlock）
+  本地化：cards.json 4 张描述同步 → 需重导 pck
+  ⚠️ 经验：DamageResult.WasTargetKilled 判断击杀；AttackCommand.Results 是
+      IEnumerable<List<DamageResult>>（每段命中一组），需 SelectMany
+  ⚠️ 游戏已关闭，本次 DLL 部署成功
+================================================================
+
+补充53（2026-08-23）稀有度调整 + 豹黑回调：
+  1 压抑（Yayi）：稀有度 Common → Uncommon（罕见）
+  2 打牌太稳了（Dapaitaiwenle）：稀有度 Common → Uncommon（罕见）
+  3 豹黑（Baohei）：回调原效果——撤销"升级抽3张"，恢复"升级费用-1（1→0）"，
+    抽牌固定2张；移除 DrawCount 变量；cards.json 描述改回"抽2张牌"
+  ⚠️ 本地化（BAOHEI.description）改动需重导 pck
+================================================================
+
+补充53.1（2026-08-23）豹黑：自身虚弱改为易伤：
+  豹黑（Baohei）：Apply<WeakPower> → Apply<VulnerablePower>（1层，本回合结束扣除）
+  cards.json BAOHEI.description："给予自身1层虚弱"→"给予自身1层易伤"
+  ⚠️ 本地化改动需重导 pck
+================================================================
+
+补充54（2026-08-23）兼容模式（提升与其他 mod 的兼容性）：
+  需求背景：原想"设置里加快速禁用晓夫九开关 + 运行时动态禁用补丁"，但 patch 游戏
+    设置 UI 场景 + 运行时 Unpatch/重 Patch Harmony 风险太高 → 改为更可靠方案
+  方案：配置文件 + 启动时选择性应用补丁（重启生效，无运行时 Harmony 操作）
+    - 新增 src/XiaofujiuCompat.cs：
+      * 读取配置文件 user://kyxiaofujiu_config.json（OS.GetUserDataDir() + 文件名），
+        格式 {"compatibilityMode": true}，默认 false（正常模式）
+      * 兼容模式开启：只应用"人物选择/角色基础"补丁（白名单 7 个）：
+        ModelDbAllCharacters/AllCardPools/AllRelicPools、
+        CharacterModel_EnergyCounterPath/TrailPath、
+        ModelIdSerializationCache_Init、NCardLibrary_Ready
+      * 其余 30 个机制补丁（动画/Boss/事件/征婚/工资/对话/转化计数/保留等）跳过
+    - kyxiaofujiuInitializer.Initialize：harmony.PatchAll() → XiaofujiuCompat.Load()
+      + ApplyPatches(harmony)（CreateClassProcessor 逐个应用，等价 PatchAll 但可跳过）
+    - 补丁类名白名单判断用 Type.Name；配置文件路径会 Log.Info 打印到 godot.log
+  ⚠️ 兼容模式下晓夫九角色仍可选可见，但机制补丁（动画/工资/征婚等）不生效；
+      正常玩晓夫九请保持 compatibilityMode: false（默认）
+  ⚠️ 用户偏好：此方案放弃"设置界面开关/选晓夫九自动关闭"（风险过高），
+      改用配置文件重启生效
+================================================================
+
+补充55（2026-08-23）兼容模式改用游戏控制台命令开关（用户嫌配置文件麻烦）：
+  游戏机制发现：DevConsole 构造函数用 ReflectionHelper.GetSubtypesInMods<AbstractConsoleCmd>()
+  自动注册 mod 的控制台命令——mod 只需继承 AbstractConsoleCmd，无需 patch DevConsole
+  实现：
+    - 新增 src/KyxiaofujiuCmd.cs：命令 `kyxiaofujiu on|off`
+      * on = 兼容模式（只保留人物选择补丁）；off = 正常模式（全部补丁）
+      * DebugOnly=false（控制台可用即注册）；Process 调 XiaofujiuCompat.SetCompatibilityMode
+    - XiaofujiuCompat 扩展：
+      * HarmonyId 常量
+      * SetCompatibilityMode(bool)：写配置 + harmony.UnpatchAll(HarmonyId)
+        + 按新模式重新 ApplyPatches（运行时即时生效，持久化重启保持）
+      * SaveConfig() 写 mod DLL 目录 kyxiaofujiu_config.json
+    - 配置文件查找：mod DLL 目录优先，fallback 用户数据目录（已提前支持）
+  ⚠️ 运行时 Unpatch 游戏核心方法有风险，建议主菜单/非战斗时用命令切换
+  ⚠️ 用法：打开游戏控制台输入 kyxiaofujiu on（兼容）或 kyxiaofujiu off（正常）
+================================================================
+
+补充55.1（2026-08-23）修正 kyxiaofujiu 命令 on/off 语义（用户反馈反了）：
+  症状：用户输入 kyxiaofujiu on 想"开启晓夫九"，结果直播之路等机制补丁失效
+  根因：补充55 的语义 on=兼容模式（禁用机制补丁）/off=正常——与用户直觉相反
+  修复（KyxiaofujiuCmd.Process）：
+    on  = 正常模式（开启晓夫九全部补丁/功能）
+    off = 兼容模式（关闭晓夫九机制补丁，只保留人物选择，防冲突）
+  ⚠️ 直播之路失效根因即此：on 被当成兼容模式 → UnpatchAll → 直播之路/动画/事件等
+      机制补丁全跳过。语义修正后 on=正常即恢复
+  ⚠️ 配置文件重置为 false（正常模式），当前 mods 目录 kyxiaofujiu_config.json
+================================================================
+
+补充56（2026-08-23）直播之路仍失效——EndPlayerTurnPhaseTwoInternal 重载歧义：
+  症状：攻击动画正常（说明部分补丁生效），但直播之路仍不触发
+  日志（godot.log）：
+    [ERROR] kyxiaofujiu 加载失败: Ambiguous match for HarmonyMethod[
+      CombatManager.EndPlayerTurnPhaseTwoInternal]  at ApplyPatches line 123
+  根因：CombatManager.EndPlayerTurnPhaseTwoInternal 有 2 个重载（无参 + 带 CombatTurnState），
+        补充48 加的 patch 用方法名字符串未指定参数 → Harmony Ambiguous match 抛异常 →
+        ApplyPatches 循环中断 → 该补丁之后（token 顺序）的补丁全部未应用
+        （攻击动画补丁在前面已应用，所以动画正常）
+  修复：
+    1) CombatManager_EndPlayerTurnPhaseTwoInternal_Patch 改为 [HarmonyPatch] + TargetMethod()
+       （CombatTurnState 是 internal 不能 typeof，用
+       Assembly.GetType("MegaCrit.Sts2.Core.Combat.CombatTurnState") 反射定位）
+    2) XiaofujiuCompat.ApplyPatches 加容错：单个补丁 try/catch，失败记录错误不中断，
+       避免某个歧义/失败补丁导致后续全部失效
+  ⚠️ 教训：patch 带重载的方法必须精确定位（TargetMethod/AccessTools 或指定参数类型），
+      否则 Harmony Ambiguous 且补丁不生效；批量应用补丁必须逐补丁容错
+================================================================
+
+补充57（2026-08-23）兼容模式回主菜单黑屏修复（epoch 补丁加入白名单）：
+  症状：兼容模式开启后回到主菜单黑屏
+  日志（godot.log）：
+    [ERROR] System.ArgumentException: Epoch with id 'XIAOFUJIU2_EPOCH' does not exist.
+  根因：兼容模式跳过了 EpochModel_Get_Patch / EpochModel_AllEpochIds_Patch（epoch 注册），
+        但晓夫九角色仍可选（ModelDb 补丁在白名单）→ 游戏加载角色时需要角色的
+        XIAOFUJIU2_EPOCH，找不到 → 异常 → 黑屏
+  修复：EpochModel_Get_Patch、EpochModel_AllEpochIds_Patch 加入 EssentialPatches 白名单
+        （epoch 是角色基础，属于"角色加载必需"）
+  ⚠️ 教训：兼容模式白名单必须包含"角色能正常加载"的全部补丁——角色可见(角色池/卡池/
+      遗物池/视觉/序列化) + 角色的 epoch，缺一即可能黑屏/崩溃；机制补丁才可跳过
+================================================================
+
+补充58（2026-08-23）新卡牌：征个未来（ZHENGGEWELAI）：
+  类型：技能 · 费用 X（HasEnergyCostX => true）· 初始夫白 · 罕见（Uncommon）
+  效果：征婚 2X 次并获得 4X 点格挡；升级后征婚 3X 次并获得 5X 点格挡
+  实现：
+    1) src/cardpools/Zhenggewelai.cs：重写 HasEnergyCostX => true（X 费卡），
+       构造费用传 0（引擎按 CostsX 处理），OnPlay 用 ResolveEnergyXValue() 取 X，
+       倍率用 IsUpgraded 判断（参考游戏本体 Cascade/Whirlwind 的 X 费实现）
+    2) 征婚用 ZhengHunCmd.Marry(choiceContext, Owner, count)，
+       格挡用 CreatureCmd.GainBlock(creature, decimal, ValueProp.Move, cardPlay) 数值版重载
+    3) 卡池 xiaofujiucardpool.cs 加入 ModelDb.Card<Zhenggewelai>()
+    4) 本地化：描述用 {IfUpgraded:show:3X|2X}（升级显示在前），
+       X 费用卡描述直接写文本 "X"（游戏内 X 就是纯文本，参考 CASCADE/WHIRLWIND）
+  ⚠️ 注意：改本地化需重导 pck；新卡无卡面/大头像资源（用占位）
+  ⚠️ 经验：X 费卡 = HasEnergyCostX => true + ResolveEnergyXValue()；
+      升级倍率变化用 IfUpgraded 判断而非动态变量（X 无法用 Var 表示）
+================================================================
+
+补充59（2026-08-23）新卡牌：红色SC（HONGSESC）：
+  类型：攻击 · 费用 2 · 初始夫白 · 稀有（Rare）
+  效果：造成 18 点伤害，给予 2 层虚弱和 2 层易伤；
+        卡组中每有一张债务，额外攻击一次（只叠加伤害段数，debuff 只给一次）
+  升级：造成 25 点伤害，给予 3 层虚弱和 3 层易伤
+  实现：
+    1) src/cardpools/Hongsesc.cs：Debt 在 MegaCrit.Sts2.Core.Models.Cards（游戏诅咒卡），
+       统计 Owner.Deck.Cards.Count(c => c is Debt)（整套卡组）
+    2) 多段攻击参考游戏 FlakCannon：DamageCmd.Attack(...).WithHitCount(1+债务数)
+    3) debuff 标准写法参考 Assassinate/Comet：
+       PowerVar<WeakPower>/PowerVar<VulnerablePower> 声明动态变量（名字=WeakPower/VulnerablePower），
+       PowerCmd.Apply<WeakPower>(ctx, cardPlay.Target, DynamicVars.Weak.BaseValue, Owner.Creature, this)，
+       hover 用 HoverTipFactory.FromPower<WeakPower>()（ExtraHoverTips 重写）
+    4) 卡池 xiaofujiucardpool.cs 加入 ModelDb.Card<Hongsesc>()（Fuhuangsc 旁，SC 系列）
+    5) 本地化：描述用 {WeakPower:diff()}/{VulnerablePower:diff()}（游戏标准格式）
+  ⚠️ 设计决策（用户未确认时自主决定）：额外攻击只叠伤害、debuff 给一次（游戏连击卡惯例+平衡），
+     用户可要求改"每次攻击都上 debuff"
+  ⚠️ 注意：改本地化需重导 pck；新卡无卡面/大头像资源（用占位）
+================================================================
+
+补充59.1（2026-08-23）红色SC 效果修正：
+  用户确认：每次额外攻击都会施加虚弱与易伤（不是只叠伤害段数）
+  修改：Hongsesc.OnPlay 从 WithHitCount(1+债务数) 一次性多段攻击
+        → 改为 for 循环 hits 次，每次完整攻击（伤害 + 虚弱 + 易伤）
+  描述无需改（"额外攻击一次"即完整攻击）
+  编译 0 错误，DLL 已部署
+================================================================
+
+补充59.2（2026-08-23）红色SC 改名"疯狂旋转"：
+  用户要求：卡名改为"疯狂旋转"，所有类名/方法名一起改
+  修改：类名 Hongsesc → Fengkuangxuanzhuan（文件 Hongsesc.cs → Fengkuangxuanzhuan.cs），
+        卡池 ModelDb.Card<Hongsesc>() → Card<Fengkuangxuanzhuan>()，
+        本地化 key HONGSESC.* → FENGKUANGXUANZHUAN.*（title 改"疯狂旋转"，描述不变）
+  已确认无残留引用，编译 0 错误，DLL 已部署
+  ⚠️ 卡牌 ID 随类名变化（HONGSESC → FENGKUANGXUANZHUAN），本地化 key 必须同步
+================================================================
+
+补充60（2026-08-23）工资药水"捡起时自动生效"bug 修复：
+  症状：获得（捡起）工资药水后立即自动生效（工资+50，药水被消耗）
+  日志（godot.log）：
+    [INFO] Player 1 obtained POTION.SALARY_POTION from potion reward
+    [INFO] Player 1 using potion SALARY_POTION (targeting 晓夫九 (index 0))   ← 获得后紧接使用
+  排查过程：
+    1) 游戏本体 PotionReward.TryToProcure/AddPotionInternal 只放槽位，不自动使用
+    2) 使用药水仅路径：点击药水→NPotionPopup弹窗→点"饮用"（UsePotionAction）；
+       无任何"获得即自动使用"代码（AutoSlay 已排除：无日志）
+    3) 根因：工资药水 Usage=AnyTime → NPotionPopup 初始化时"饮用"按钮 Enable+自动聚焦，
+       非战斗时（战利品结算界面）按确认键误触发饮用；而 CombatOnly 药水（征婚/夫黄）
+       非战斗时"饮用"按钮禁用，不会误触发 → 只有工资药水出问题
+  修复：SalaryPotion.Usage AnyTime → CombatOnly（战斗中饮用才生效，战斗外"饮用"禁用）
+  ⚠️ 代价：战斗外不能再喝工资药水（工资是跨战斗资源，战斗中喝完全合理）
+      若以后需战斗外使用，改回 AnyTime 需额外 patch 弹窗防误触（侵入游戏 UI）
+  编译 0 错误，DLL 已部署
+================================================================
+
+补充61（2026-08-23）工资药水 bug 重新定位（用户澄清）：
+  用户澄清：点击"工资药水"→ 工资自动加了；随后点击"饮用"→ 没效果。
+           且明确要求参考鲜血药水（BloodPotion）：战斗内外都能点"饮用"喝
+  修正方向：上一轮改成 CombatOnly 是错的（丢了战斗外饮用），改回 AnyTime
+  排查结论（深入游戏源码）：
+    1) 游戏无"点击药水即自动使用"路径：NPotionHolder.OnRelease 只 OpenPotionPopup（弹窗），
+       使用仅 NPotionPopup"饮用"按钮 → UsePotion() → EnqueueManualUse → UsePotionAction
+    2) SalaryPotion(AnyTime+AnyPlayer) 与 BloodPotion(AnyTime+AnyPlayer) 代码行为完全一致
+    3) mod 无药水相关 patch（42 个 patch 全查过）
+  处理：改回 AnyTime（同鲜血药水）+ SalaryPotion.OnUse 加诊断日志
+       （记录调用堆栈 Environment.StackTrace），等用户复现后从日志定位真实触发源
+  待办：用户复现"点击工资药水"后查 godot.log 中 [SalaryPotion] OnUse 的堆栈
+================================================================
+
+补充60（2026-08-23）新卡牌：地狱狂夫（DIYUKUANGFU）：
+  类型：能力 · 费用 2 · 初始夫白 · 稀有（Rare）· 升级费用-1
+  效果：每当你抽到夫黑时，将其打出（强制打出，自动选目标）
+  参考：游戏 Hellraiser（2费Power抽到打击自动打出，升级费用-1）
+  实现：
+    1) src/powers/DiyukuangfuPower.cs：PowerModel，Type=Buff，StackType=Single，
+       重写 AfterCardDrawnEarly(ctx, card, fromHandDraw)（AbstractModel 虚方法）：
+       只处理自己抽到的夫黑（card.Owner?.Creature != Owner 过滤），
+       用现成的 FufuBlackCardPlay.Play(card, ctx) 强制打出夫黑（自动选目标、
+       走夫黑打出机制，参考 Fuheishuohua/Tuiding）
+    2) src/cardpools/Diyukuangfu.cs：打出 PowerCmd.Apply<DiyukuangfuPower>，
+       升级 EnergyCost.UpgradeBy(-1)
+    3) 卡池 + cards.json + powers.json 本地化
+  ⚠️ 注意：夫黑被自动打出不会无限循环（AfterCardDrawn 只在"抽到"时触发，
+     打出/回手不触发）；夫黑默认不可打出由 FufuBlackCardPlay 强制绕过
+  ⚠️ 改本地化需重导 pck；新卡无卡面/大头像资源（用占位）
+================================================================
+
+补充60.1（2026-08-23）地狱狂夫 加 0.2 秒打出延迟：
+  用户要求：抽到夫黑后过 0.2 秒再打出，让玩家看清抽到了什么
+  修改：DiyukuangfuPower.AfterCardDrawnEarly 在 FufuBlackCardPlay.Play 前加
+        await Cmd.CustomScaledWait(0.2f, 0.2f)（MegaCrit.Sts2.Core.Commands.Cmd）
+  编译 0 错误，DLL 已部署（纯代码改动，无需重导 pck）
+================================================================
+
+补充61（2026-08-23）夫化增强：夫黑免费打出：
+  用户要求：夫化在原有基础上，打出夫黑卡牌免费（不消耗能量）
+  实现：FuhuaPower 重写 AbstractModel.TryModifyEnergyCostInCombat(card, originalCost, out modifiedCost)
+        ——持有者（card.Owner.Creature == Owner）的夫黑卡费用改为 0，返回 true
+  保留原有效果：夫黑可打出（IsPlayable）+ 打出后消耗（ModifyCardPlayResultLocation）
+  参考：游戏 SpikedGauntlets（TryModifyEnergyCostInCombat 改费用）
+  描述更新：FUHUA.description / FUHUA_POWER.smartDescription 加"免费"
+  编译 0 错误，DLL 已部署
+  ⚠️ 本地化已改需重导 pck；代码生效无需（重启即可）
+================================================================
+
+补充62（2026-08-23）新卡牌：三十岁的男人（SANSHISUIDENANREN）：
+  类型：能力 · 费用 1 · 初始夫白 · 罕见（Uncommon）· 升级费用-1
+  效果：当你征婚时，获得 2 倍征婚值的格挡
+  实现：
+    1) src/powers/SanshisuidenanrenPower.cs：纯标记 Power（Buff/Single）
+    2) src/cardpools/Sanshisuidenanren.cs：打出 PowerCmd.Apply，升级 EnergyCost.UpgradeBy(-1)
+    3) ZhengHunCmd.Marry 内加检查（与压抑形态 YayixingtaiPower 同模式）：
+       在 Yayixingtai 翻倍之后、combatState 检查前，
+       GetPower<SanshisuidenanrenPower>() 存在 → CreatureCmd.GainBlock(player.Creature, amount*2, ValueProp.Move, null)
+       ⚠️ amount 是翻倍后的征婚次数；所有征婚来源（卡/遗物/药水/能力）都走 ZhengHunCmd.Marry 统一触发
+    4) 卡池 + cards.json + powers.json 本地化
+  ⚠️ 改本地化需重导 pck；新卡无卡面/大头像资源（用占位）
+================================================================
+
+补充62.1（2026-08-23）三十岁的男人 改为可叠加：
+  用户要求：出 2 张=4倍格挡，3 张=6倍
+  修改：SanshisuidenanrenPower.StackType Single → Counter（层数叠加），
+        ZhengHunCmd.Marry 格挡计算 amount * 2 * sanshisui.Amount（每层2倍）
+  编译 0 错误，DLL 已部署
+================================================================
+
+补充63（2026-08-23）新卡牌：带吧多带（DAIBADUODAI）：
+  类型：技能 · 费用 1 · 初始夫白 · 罕见（Uncommon）· 升级 2张→3张
+  效果：选择抽牌堆中的 2 张牌（升级 3 张），放到抽牌堆顶并转化
+  实现：
+    1) src/cardpools/Daibaduodai.cs：CardSelectCmd.FromCombatPile 从抽牌堆选牌
+       （CardSelectorPrefs prompt, 0, maxCount 可少选），
+       CardPileCmd.Add(card, PileType.Draw, CardPilePosition.Top) 放顶
+       （参考游戏 Headbutt/PhotonCut），FufuCmd.Toggle 转化（夫黑↔夫白，仅夫卡生效）
+    2) IntVar("CardCount", 2) 升级 +1；HasConvertEffect 加转化 hover
+    3) 卡池 + cards.json 本地化（含 selectPrompt）
+  ⚠️ 改本地化需重导 pck；新卡无卡面/大头像资源（用占位）
+================================================================
+
+补充64（2026-08-23）为 8 个遗物添加图标（来自桌面 模组卡片/遗物）：
+  规则（游戏 RelicModel）：小图标 images/atlases/relic_atlas.sprites/<Id小写>.tres（AtlasTexture），
+    大图标 images/relics/<Id小写>.png（检视界面）
+  已添加：
+    ka_jiu_relic（卡九）、ka_hao_le（卡好了）、ka_relic（卡遗物）、wedding_ring（婚戒）、
+    jian_ta_ya_yi（尖塔压抑）、my_custom_relic（尖塔糕手，替换旧121x115图→862x813）、
+    spire_expert（尖塔高手）、proposal_ring（征婚戒指）
+  ⚠️ nosl高手（NoSlGaoShou）桌面无图，未添加（用占位）
+  ⚠️ 新 png 无 .import 文件：需 Godot 打开项目/headless import 自动生成，再重导 pck
+  ⚠️ 图片为大图（2048x2048 等），AtlasTexture 会缩放显示，正常
+================================================================
+
+补充65（2026-08-23）为 12 张卡牌添加卡面/大头像（来自桌面 模组卡片/卡牌）：
+  规则：卡面 images/atlases/card_atlas.sprites/xiaofujiu/<类名snake>.tres（AtlasTexture 引用大头像），
+    大头像 images/packed/card_portraints/xiaofujiu/<类名snake>.png
+  已添加（12张）：nongbai(农白，修正确命名，旧的 nong_bai 是错的)、lejinwo(勒紧我)、
+    shuangmianfuge(双面夫哥)、oniupi(哦牛批)、datouerzi(大头儿子)、fugebaoshe(夫哥爆射)、
+    muhouheishou(幕后黑手)、zhandouzhiying(战斗之鹰)、suixinzhe(碎心者)、
+    kumingyuanyang(苦命鸳鸯)、kukuku(苦苦苦)、yaojiajiujia(要嫁就嫁)
+  region 暂用全图(0,0,W,H)，用户可在 Godot 微调裁剪
+  ⚠️ 新 png 无 .import：需 Godot 导入 + 重导 pck
+  ⚠️ 桌面还有 60+ 张卡缺卡面（记忆统计 80 张中 48 张缺），等用户提供图片
+================================================================
+
+补充66（2026-08-25）为 19 个能力添加图标（桌面 模组卡片/能力）：
+  处理：白底去背景→透明（Python PIL+scipy 连通域标记，只删连通到边缘的近白背景，
+        阈值 RGB>240，保留主体内白色；验证主体保留率 9%-38% 无过度删除）
+  导入（游戏 PowerModel 规则）：
+    小图标 images/atlases/power_atlas.sprites/<Id小写>.tres（AtlasTexture，2048x2048）
+    大图标 images/powers/<Id小写>.png
+  19个：yiciyige/一次一个、sanpaidayuqieqie/三牌大于一切、chuangshifuzhu/创世夫柱、
+    biedaraofuge/别打扰夫哥、lejinwo/勒紧我、shiwanfenfuli/十万粉福利、jimi/基米、
+    fubaishangong/夫白上贡、fudenver/夫的女儿、fuhuangsc/夫黄SC、chapianrenzhi/差偏认知、
+    zhenghunzhe/征婚者、touzi/投资、xiaofujiushiliansheng/晓夫九十连胜、
+    huoduilingdianwu/火堆零点五、baomi/爆米、no_marry/禁止征婚、jueburenshu/绝不认输、
+    changkao/长考（均 *_power 后缀，Id=类名SCREAMING_SNAKE小写）
+  ⚠️ 新 png 无 .import：需 Godot 导入 + 重导 pck
+  ⚠️ 桌面无图的其余能力（压抑形态/追踪之蛇/不为你而死/黄皮肤才对/夫化/三十岁的男人/地狱狂夫/蛇花小姐/tianxuandagong/neimaerdexinwei/sl百连）未添加
+================================================================
+
+补充66.1（2026-08-25）能力图标处理方案调整：
+  用户反馈：自动阈值抠图效果差（扣了不该扣的、留了不该留的）→ 改用系统画图抠图
+  已做：撤下 mod 里 19 个自动抠图资源（png+tres 备份到
+        C:\Users\开元\AppData\Local\Temp\power_icons_auto_bak），
+        清理 atlas 残留 .import；创建 C:\Users\开元\Desktop\模组卡片\能力_已处理
+  待用户：用画图（图像→移除背景→保存PNG）处理 19 张，放到 能力_已处理，
+        我负责导入（命名映射见补充66）
+================================================================
+
+补充66.2（2026-08-25）能力图标改用 AI 抠图（rembg）：
+  用户反馈：不自己处理，要求我解决；画图用不了就用别的方式
+  方案：pip 已装 rembg 2.0.78（onnxruntime 1.28 可用，Python 3.14）
+        rembg.remove() AI 语义分割抠图（U2Net），1.5s/张，19张共26s
+  效果：AI 抠图质量远好于阈值算法（主体边缘准确、无硬边/误删），
+        抽查差偏认知/夫黄SC/投资等均正常
+  导入：能力_已处理/*.png → power_atlas.sprites/ 和 powers/（英文映射名），
+        .tres 从临时备份恢复（region 2048x2048）
+  ⚠️ 新 png 无 .import：需 Godot 导入 + 重导 pck
+================================================================
+
+补充66.3（2026-08-25）绝不认输/一次一个 改用用户处理图：
+  用户已用画图处理 绝不认输/一次一个 并覆盖桌面 能力 目录原图（19:53 晚于我 19:48）
+  已替换：yiciyige_power（用户版2048x2048）jueburenshu_power（用户版883x764）
+        → power_atlas.sprites/ + powers/
+  jueburenshu_power.tres region 已改 883x764（用户图非2048）
+  ⚠️ 其余17张仍是 rembg AI 抠图版
+================================================================
+
+补充67（2026-08-28）幸运房东收租改为战利品页面“旋转一次”抽奖：
+  用户要求：工资够时取消自动结算，改为战利品页面加“旋转一次”奖励点击抽奖；工资不够仍自动加债务
+  实现：
+    1) src/relicpools/SpinReward.cs（新）：Reward 子类，RewardType.None 作标记，
+       IconPath 用货币图标，Description=“旋转一次（点击抽奖）”，
+       OnSelect → LuckyLandlordRelic.GrantReward(Player)（GrantReward 改 internal）
+    2) LuckyLandlordRelic：
+       - 加 PendingSpin（SavedProperty，SL 保留）
+       - CollectRent 付得起：扣房租+房租+100 后不再立即 GrantReward，
+         改 PendingSpin=true + 气泡“战利品里旋转一次抽奖”
+       - TryModifyRewards：PendingSpin → 添加 SpinReward
+    3) kyxiaofujiuInitializer 加 Reward_FromSerializable_SpinReward_Patch：
+       游戏 Reward.FromSerializable 对 RewardType.None 抛 NotImplementedException（SL 崩），
+       Prefix 拦截 None → 从 player.GetRelic<LuckyLandlordRelic>() 返回 SpinReward
+    4) relics.json 加 LUCKY_LANDLORD_RELIC.spinReward
+  ⚠️ 本地化已改需重导 pck；代码改动重启生效
+  ⚠️ SpinReward 图标暂用货币图标，可后续换轮盘图
+================================================================
+
+补充67.1（2026-08-28）幸运房东图标 + 旋转奖励图标：
+  桌面新增 幸运房东.png（687x671，已带透明背景）→
+    遗物小图标 relic_atlas.sprites/lucky_landlord_relic.tres（region 687x671）+ png
+    遗物大图标 images/relics/lucky_landlord_relic.png
+  旋转奖励图标：SpinReward.IconPath 从货币图标改为 relics/lucky_landlord_relic.png
+  编译 0 错误，DLL 已部署
+  ⚠️ 新 png 无 .import：需 Godot 导入 + 重导 pck
+================================================================
+
+补充67.2（2026-08-28）查看遗物大图报错修复：
+  症状：点遗物查看大图报错（LocException）但能继续
+  日志：Inspecting Relic: LUCKY_LANDLORD_RELIC → Key=LUCKY_LANDLORD_RELIC.flavor not found
+  根因：幸运房东缺 .flavor 本地化，InspectRelicScreen.UpdateRelicDisplay 取 flavor 时抛异常
+  （用户说的“尖塔高手”实为幸运房东——日志确认；尖塔高手 SPIRE_EXPERT 的 flavor/大图/小图均完整）
+  修复：relics.json 补 LUCKY_LANDLORD_RELIC.flavor=“房东盯着你的钱袋，露出了满意的微笑。”
+  纯本地化改动，需重导 pck
+  ⚠️ 经验：遗物/卡牌查看详情界面会加载 .flavor，缺了会 LocException；新增遗物必须带 title/description/flavor
+================================================================
+
+补充67.3（2026-08-28）旋转抽到卡牌/药水奖励无效修复：
+  症状：点击“旋转一次”抽到“额外卡牌奖励”时没有任何效果
+  根因：抽奖时战利品列表已生成完毕，GrantReward 里 PendingCardReward/PendingPotionReward
+        只能等下一次 TryModifyRewards 才生效 → 当前无效果
+  修复：改用 RewardsCmd.OfferCustom(player, [CardReward]) 立即弹出卡牌选择界面（3选1），
+        药水同理弹 PotionReward 选择界面；删除 PendingCardReward/PendingPotionReward
+        字段/属性/TryModifyRewards 分支（只保留 PendingSpin）
+  编译 0 错误，DLL 已部署
+  ⚠️ 经验：战利品生成后不能靠 Pending* 挂新增奖励，需立即弹出（RewardsCmd.OfferCustom）
+================================================================
+
+补充67.4（2026-08-28）旋转抽奖概率调整：
+  用户要求：取消空奖；999金币（隐藏大奖）1%→5%；剩余分给其他奖励
+  新概率（1000刻度精确）：
+    随机遗物 18.4%、100金币 21.4%、20生命 18.4%、卡牌 18.4%、药水 18.4%、999金币 5%
+  实现：roll 改 rng.NextInt(1,1001)，删除"无额外奖励"分支
+  编译 0 错误，DLL 已部署
+================================================================
+
+补充68（2026-08-28）点击时间线卡死修复：
+  症状：点击时间线（Timeline）后卡死
+  日志：LocException: Key=STORY_XIAOFUJIU not found in table=epochs
+        at EpochModel.get_StoryTitle() ← NEpochInspectScreen.Open ← NEpochSlot.OnRelease
+  根因：mod 3 个纪元（Xiaofujiu2/3/4）StoryId 都是 "Xiaofujiu"，
+        时间线查看纪元时读 "STORY_" + StoryId.ToUpperInvariant() = STORY_XIAOFUJIU，
+        epochs.json 缺该 key → LocException
+  连带发现：NEpochSlot 悬停还读 Id + ".unlockInfo"（mod 只有 .unlockText），
+        且原 epochs.json 缺 XIAOFUJIU4_EPOCH 全部条目
+  修复：epochs.json 补 STORY_XIAOFUJIU="晓夫九"、3 个 .unlockInfo、
+        XIAOFUJIU4_EPOCH 的 title/description/unlockInfo/unlockText
+  纯本地化改动，需重导 pck
+  ⚠️ 经验：epoch 需要的 key = Id+.title/.description/.unlockInfo/.unlockText + STORY_<StoryId大写>
+================================================================
+
+================================================================
+
+补充69（2026-08-29）6张缺图卡卡面补全（本体卡图+晓夫九头像合成）：
+  处理卡：夫哥大剑柄(剑柄打击)/放干夫血(放血)/创世夫柱(创世之柱)/
+          追踪之蛇(追踪之刃)/地狱狂夫(地狱狂徒)/夫化(腐化)
+  做法：本体 packed/card_portraits 原图 + B站头像(2138x2137, space.bilibili.com/12173473)
+        Python PIL 圆形徽章合成：4x超采样抗锯齿、金色双环描边(ba7d14 卡池金)、
+        暖光晕+柔和投影、按识图留白区放置(右上/右上/左上/左下/右上/右下)
+  产出：images/packed/card_portraints/xiaofujiu/ 新增6张png
+        images/atlases/card_atlas.sprites/xiaofujiu/ 新增6个tres(region=整图, UID已查重)
+  验证：headless import 6张png生成.import+.ctex 无报错；
+        headless --script 实载6个tres ALL_6_PORTRAITS_OK (exit 0)；
+        export-release 重导 pck 108848336B, 6 png+6 tres均在包内；已部署游戏 mods 目录
+  备份：backup/2026-08-29-pre-cardart/ (build旧pck + mods部署版pck)
+  ?? 头像来源：B站官方API card?mid=12173473 -> i1.hdslb.com/bfs/face/63d12d04...jpg
+  ?? 剩余38张卡仍缺卡面（夫黑/夫白/夫黄/黑转白转黑等，见 cards.json 对比）
+================================================================
+
+================================================================
+
+补充70（2026-08-29）3张卡面玩梗重制（放血玉米汁/创世柱换头打码/地狱狂夫面具藏脸）：
+  玩家反馈第一版只是"贴头像徽章"没有梗 -> 重做为真正的场景合成：
+  - 放干夫血: 拳头伤口改喷烤玉米(从B站头像抠出的真玉米)+血流全柱重映射为玉米汁三档色
+  - 创世夫柱: 储君头像换成晓夫九真人照片大头(立绘抠图+右缘青色rim light), 柱子整根22px马赛克+描边
+  - 地狱狂夫: 面具左半沿中线"掀开"(位移-14,-9+金缝光), 后面露出晓夫九真人脸(暗金调和+半遮半露)
+  覆盖: fangganfuxue/chuangshifuzhu/diyukuangfu 三张 png (旧版备份 backup/2026-08-29-pre-cardart/v2-meme)
+  验证: 识图确认三梗可辨认(玉米汁/眼镜头+马赛克/面具藏脸); headless import+export 通过;
+        新 pck 109729336B 已部署 mods; tres 不变(尺寸未变 1000x760)
+  手法清单: workspace/XiaofujiuKaMian/梗图合成说明.md
+================================================================
+
+补充69（2026-08-29）导入新一批卡牌卡面（桌面 模组卡片/卡牌，跳过已做好12张）：
+  新增10张卡面：ktvgewang(KTV歌王)、sanshisuidenanren(三十岁的男人)、liangyuansc(两元SC)、
+    rufumen(入夫门)、daibaduodai(带吧多带)、zhenggewelai(征个未来)、niannongshi(念农师)、
+    wuzhonghenyi(无终恨意)、yongweimi(用萎靡)、tuiding(退订)
+  新增1张：fudenver(夫的女儿，之前无卡面)
+  更新6张region：chuangshifuzhu(创世夫柱1554x949)、diyukuangfu(地狱狂夫1255x811)、
+    fuhua(夫化681x626)、fangganfuxue(放干夫血2240x1696)、kukuku(苦苦苦465x372新图)、
+    zhuizongzhishe(追踪之蛇1254x870)
+  region 暂用全图，可在 Godot 微调
+  ⚠️ 新 png 无 .import：需 Godot 导入 + 重导 pck
+================================================================
+
+补充69.1（2026-08-29）基米换新卡面 + 突发恶疾用旧基米：
+  桌面基米.png(486x471) → jimi 新卡面（jimi.png 替换，jimi.tres 补 region 486x471）
+  旧 jimi.png(390x251) → tufaeji 卡面（新建 tufaeji.png + tufaeji.tres，突发恶疾原本无卡面）
+  纯资源改动，需 Godot 导入 + 重导 pck
+================================================================
+
+补充69.2（2026-08-29）带吧多带卡面给踩头大战 + 导入新一批卡面：
+  1) 原 daibaduodai 卡面(1034x867) → caitoudazhan（踩头大战，新建卡面）
+  2) 桌面新 带吧多带.png(540x405) → daibaduodai 更新
+  3) 新增8张卡面：niuma(牛马894x624)、qinggetanchang(情歌弹唱1236x819更新)、
+     gangzuodemeijia(刚做的美甲281x207)、wuqunlaile(五群来了683x360)、
+     nongfushebao(农夫蛇豹267x216)、bangyishenmedongxi(榜一什么东西648x418)、
+     tiantiantian(甜甜甜1476x820)、buweinierersi(不为你而死430x333)
+  纯资源改动，需 Godot 导入 + 重导 pck
+================================================================
+
+补充69.3（2026-08-29）更新最新一批卡面 + 黄皮肤才对改名：
+  1) 更新1张：wushisc(无视SC 1000x760)
+  2) 新增7张：huangpifucaidei(黄皮夫才对390x288)、yiciyige(一次一个594x453)、
+     sanpaidayuqieqie(三牌大于一切472x315)、huikajiu(辉卡九349x213)、
+     fengkuangxuanzhuan(疯狂旋转1260x1424)、shiwanfenfuli(十万粉福利1149x825)、
+     lage(辣个948x505)
+  3) 改名：cards.json HUANGPIFUCAIDEI.title 黄皮肤才对→黄皮夫才对
+  纯资源+本地化改动，需 Godot 导入 + 重导 pck
+================================================================
+
+补充69.4（2026-08-29）导入最后一批卡面（桌面 20:49-20:51）：
+  新增8张：shututonggui(殊途同归950x689)、oujinjin(欧金金950x658)、
+    fubaishangong(夫白上供951x663)、chunqingnvda(纯情女大960x673)、
+    kaifuyan(开夫眼942x681)、touzi(投资945x678)、fuheishuohua(夫黑说话933x687)、
+    heizhuanbaizhuanhei(黑转白转黑937x681)
+  更新1张：fugedajianbing(夫哥大剑柄 1000x760→2240x1696)
+  纯资源改动，需 Godot 导入 + 重导 pck
+================================================================
+
+补充70（2026-08-30）一次一个跨战斗残留导致 BOSS 战抽牌翻倍超手牌上限：
+  玩家反馈：BOSS 战抽上来的牌被复制、超手牌上限
+  根因（多种 bug 组合）：
+    游戏 Player.AfterCombatEnd 用 RemoveAllPowersInternalExcept 清理战斗 Power，
+    但该方法【跳过 AfterRemoved】！→ YiciyigePower 的静态事件订阅
+    FufuBlackToWhiteConverted 退订不了 → 跨战斗残留
+    每场战斗再次获得"一次一个"又 AfterApplied 订阅 → 订阅叠加 →
+    一次夫黑→夫白转化触发【多次】抽牌（2x/3x...）→ 抽牌翻倍超手牌上限
+  修复：
+    1) YiciyigePower：删掉 AfterApplied/AfterRemoved 的静态事件订阅，
+       改为公开方法 OnFufuBlackToWhiteConverted(card)
+    2) XiaofujiuCardBase.NotifyOwnerPowers：黑→白转化时
+       creature.GetPower<YiciyigePower>()?.OnFufuBlackToWhiteConverted(this)
+       ——走"生物上的 Power"钩子：战斗结束 Power 移除后自动失效，不会残留
+  排查确认：其他静态事件订阅者（Bangyishenmedongxi/HuaJiaGuanZhong/KaJiuRelic/
+    XiangluleRelic）均有配对退订（卡牌/遗物钩子可靠），无此问题
+  编译 0 错误，DLL 已部署
+  ⚠️ 教训：Power 的战斗结束清理走 RemoveAllPowersInternalExcept（跳过 AfterRemoved），
+      不要用静态事件做战斗内监听；应通过生物上的 Power 钩子（NotifyOwnerPowers）
+================================================================
+
+补充70.1（2026-08-30）验证其他能力牌是否有同类跨战斗残留问题：
+  结论：无。30 个 Power 类中：
+    - 唯一订阅静态事件的是 YiciyigePower（已修复）
+    - 其余 Power 全部用游戏标准钩子（AfterSideTurnStart/AfterCombatEnd/
+      AfterCardDrawnEarly/AfterApplied 等）或非静态生物 Power 钩子（NotifyOwnerPowers），
+      随战斗结束 Power 移除自动失效，无静态残留
+    - 静态字段仅 SheHuaMarryCountPower 的 readonly LocString（无害）
+      + YiciyigePower.RetainDrawnAtCombatEnd（patch DoTurnEnd 管理，战斗外为 false）
+  卡牌/遗物 4 个静态事件订阅者（Bangyishenmedongxi/HuaJiaGuanZhong/KaJiuRelic/
+    XiangluleRelic）均有 AfterCombatEnd 配对退订：
+    游戏时序确认：EndCombatInternal 先 Hook.AfterCombatEnd（遍历所有 model，
+    Power 还在）→ 再 player.AfterCombatEnd()（RemoveAllPowersInternalExcept 移除 Power）
+    → 所以 AfterCombatEnd 退订可靠，AfterRemoved 不可靠（被跳过）
+  ⚠️ 经验：Power 退订用 AfterCombatEnd（可靠），不要依赖 AfterRemoved；
+      HuangpifucaideiPower 用了 AfterRemoved 刷新重放计数（无退订语义，无害）
+================================================================
+
+补充71（2026-08-30）修复 4 个 bug：
+  1) 农白永久加力量 → 临时力量：
+     新建 src/powers/NongbaiPower.cs（继承游戏 TemporaryStrengthPower，OriginModel=Nongbai，IsPositive=true，
+     参考 PiercingWail：BeforeApplied 加力量、AfterSideTurnEnd 回合结束自动撤销）
+     Nongbai.OnPlay 改为 foreach 敌人 Apply<NongbaiPower>(4)（原 StrengthPower 永久）
+  2) 三十岁的男人本地化：卡描述 {Amount} 卡牌无此变量 → 改固定"2倍"；
+     powers.json 的 smartDescription 保留 {Amount}（Power 有，动态显示层数）
+     （"征婚 值"空格实为终端显示误判，文件无空格）
+  3) 蛇花征婚值与图标层数不一致：
+     根因：Upgrade/IncrementMarryCountOnly 只改 _marryCount，不触发 Power 的
+     DisplayAmountChanged → 图标不刷新滞后
+     修复：SheHuaMarryCountPower 加 RefreshDisplay()（InvokeDisplayAmountChanged），
+     ZhengHunCmd.Marry existing 分支每次征婚后调用
+  4) 夫黄顶掉原有重放（未掘宝石）：
+     根因：UpdateFufuKeywords 用 BaseReplayCount = IsFufuYellow ? GetYellowReplayCount() : 0
+     绝对值覆盖 → 卡原有重放/附魔重放被顶掉
+     修复：增量叠加——加 _fufuReplayAdded 字段，先减旧夫态重放再在当前 BaseReplayCount
+     基础上 +夫黄重放（不覆盖原有）；RefreshReplayCounts 改为调 UpdateFufuKeywords 重算
+  编译 0 错误，DLL 已部署；本地化改动需重导 pck
+  ⚠️ 经验：游戏临时力量 = TemporaryStrengthPower 子类（非 StrengthPower）；
+     数值类 Power 的图标刷新需在数据变化处调 InvokeDisplayAmountChanged
+================================================================
+
+补充72（2026-08-30）美术资源缺失统计（Python 脚本扫描 85卡/13遗物/3药水/31能力）：
+  卡牌85张：卡面全有✓；大头像全有✓（78张png+7张jpg，
+    其中大厂程序员是错误拼写 dachangchengxvyuan.jpg 但引用一致可用）
+  遗物13个（SpinReward为奖励类不算）：
+    缺4：EMoQiYueRelic(恶魔契约)、HuaJiaGuanZhong(华家观众)、NoSlGaoShou(nosl高手)、
+         XiangluleRelic(享乐了)
+    有9：尖塔糕手/卡九/卡好了/卡遗物/婚戒/征婚戒指/尖塔压抑/尖塔高手/幸运房东
+  药水3个：全缺（FufuYellowPotion夫黄药水、SalaryPotion工资药水、ZhenghunPotion征婚药水）
+  能力31个：
+    缺小图标12：不为你而死/地狱狂夫/夫化/黄皮夫才对/内马尔的欣慰/农白/三十岁的男人/
+        蛇花小姐/sl百连/天选打工/压抑形态/追踪之蛇
+    缺大图11：同上除sl百连（有大图）
+  ⚠️ 注意：NongbaiPower 为农白临时力量新增，无图标；SpinReward 用幸运房东图做奖励图标
+================================================================
+
+补充73（2026-08-30）打开游戏黑屏——空目录遮蔽游戏资源：
+  症状：打开游戏黑屏
+  日志：NEnergyCounter.Create → PackedScene.Instantiate 异常，
+        "Node vfx_fire_embers_straight of type  cannot be created" / "Cannot get class ''"
+  根因：
+    1) mod 项目里有【空目录】scenes/vfx、scenes/backgrounds、themes、materials/ui
+    2) export_presets.cfg export_filter="all_resources"（include/exclude 空）→
+       重导 pck 时把空目录路径也打进 mod pck
+    3) mod pck 优先遮蔽游戏 pck 同路径 → 游戏加载 res://scenes/vfx/...（能量计数器
+       VFX 前后场景引用游戏 VFX）、res://themes/...、res://materials/ui/...、
+       res://scenes/backgrounds/... 时从 mod pck 找（空）→ 找不到 → 实例化失败黑屏
+    之前能玩：旧 pck 未重导；今晚用户重导 08/30 23:06 的 pck 触发
+  修复：删除 4 个空目录（游戏资源由游戏 pck 提供，已确认游戏有对应资源）；
+        复查无其他空目录
+  ⚠️ 待用户：重新重导 pck
+  ⚠️ 经验：mod 项目里绝不能有与游戏同路径的空目录（Godot all_resources 会打包空目录
+      遮蔽游戏资源）；export_presets 最好加 exclude_filter
+================================================================
+
+补充73.1（2026-08-30）黑屏根因深挖——场景 uid 断链（非空目录遮蔽）：
+  用户导出 pck 报错（Godot 编辑器）：
+    Unrecognized UID: uid://cxfback01 / uid://cxffront01 / uid://bkj8xw2n5vq7r
+    ext_resource invalid UID: uid://7y75kcsi1xdw / uid://ft58cpw2uxdl / uid://bg85h22rkxs6g
+    Cannot open res://scenes/vfx/...、res://materials/ui/energy_orb_dark.tres、res://themes/kreon_bold_shared.tres
+  根因：
+    1) 能量计数器场景引用 vfx_back/front 用 uid(7y75kcsi1xdw等)，但这两个场景文件
+       从未注册该 uid（文件头无 uid、无 .uid 文件、uid_cache 无）→ 断链 → 实例化失败黑屏
+    2) 假 uid(cxfback01/cxffront01) 来自 .preuidfix 备份文件（Godot 修复遗留）→ 已删
+    3) 主场景还引用游戏资源(materials/ui、themes、scenes/vfx)带 uid——mod 项目里没有
+       这些资源，编辑器无法解析其 uid → 导出报错 + 运行时加载失败
+  修复：
+    1) 主场景 vfx_back/vfx_front/energy_orb_dark/kreon_bold_shared 全部改 path-only（不依赖 uid）
+    2) 删除 4 个 .preuidfix/.broken2 备份（含假 uid）
+    3) 检查确认无其他场景引用游戏资源带 uid
+  ⚠️ 待用户：清 .godot 缓存重导入 + 重导 pck
+  ⚠️ 经验：mod 场景引用游戏资源必须 path-only（不带 uid）；Godot 4.4+ uid 机制
+      在 mod 项目里不可靠（资源不在项目里无法注册 uid）
+================================================================
+
+补充73.2（2026-08-30）黑屏真正根因——场景 uid/path 不一致（用户修改能量/工资计数器场景后产生）：
+  用户关键信息：修改晓夫九能量/工资计数器场景后黑屏
+  深挖：
+    1) mod 主场景复制自游戏铁甲战士 ironclad_energy_counter.tscn，引用的
+       uid://7y75kcsi1xdw / uid://dvsi8v1mbnt3q 正是游戏原版
+       ironclad_energy_vfx_back/front.tscn 的 uid（游戏 pck 有效）
+    2) 但 mod 把 path 指向了自建场景 xiaofujiu_energy_vfx_back/front.tscn
+       （该场景引用散装 VFX：vfx_common_glow/flipbook 等）→ uid 与 path 不一致
+       → Godot 按 uid 失效回退 path → 自建场景内部散装 VFX 无 uid 且 mod 无这些资源
+       → 实例化失败 → 黑屏
+    3) 编辑器报错（invalid UID / Cannot open 游戏资源）是正常现象：
+       mod 项目里没有游戏资源，编辑器无法解析；游戏运行时游戏 pck 已加载则正常
+  修复：
+    1) 主场景 vfx_back/front 改为引用游戏原版（uid+path 一致）：
+       scenes/vfx/energy/ironclad/ironclad_energy_vfx_back.tscn
+       scenes/vfx/energy/ironclad/ironclad_energy_vfx_front.tscn
+    2) energy_orb_dark/kreon_bold_shared 恢复 uid 引用（游戏资源，uid 有效）
+    3) 删除 mod 自建 xiaofujiu_energy_vfx_back/front.tscn（问题源）
+  ⚠️ 待用户：必须删除 .godot 缓存（旧导入数据仍报错）+ 重导 pck
+  ⚠️ 经验：复制游戏场景改 mod 时，游戏资源引用必须保留原 uid+path 一致；
+      不要用"自建场景引用散装游戏 VFX"的方式；编辑器 Cannot open 游戏资源是正常
+================================================================
+
+=== ����74 ����������VFX���� ===
+- ����ȷ�ϣ�������EnergyVfxBack/Front������Ϸԭ��VFX��������Ϸ����ʱ����ʧ��(Cannot get class '')��ռλ��Control��NEnergyCounter._Ready��GetNode<NParticlesContainer>��InvalidCastException��BuildSalarySlot(���ʲ�)δִ�С����ʲ���ʾ
+- �޸����½�scenes/combat/energy_counters/xiaofujiu_energy_vfx.tscn(mod�Դ���VFX����,���ڵ�XiaofujiuParticlesContainer�̳�NParticlesContainer,���κ���Ϸ��Դ����)������������VFX�ڵ��������(path-only)
+- Ч��������������������ϷVFX��ʵ�����ɹ���_Ready���������ʲ���ʾ(�����������޻�����Ч���ȶ�)
+- ע�����ʲ��Ǵ��봴����(XiaofujiuEnergyCounter.BuildSalarySlot)���ǳ������û��ἰ�Ĺ��ʼ��������ļ�δ����Ŀ�ҵ�����δ����
+
+=== ����74-�ع� ������VFX�����Ķ� ===
+- ��ѵ���û������Ķ��������������־23:38:40ȷ���û���ǰ״̬��ȫ����(Preloading characters=XIAOFUJIU vfx=6�ɹ�,��VFX�����޺���)����˵���û��ص�pck��������ѽ��,����������VFX��������
+- ������һ�ְ�������VFX���øĳ��½���mod�ճ���xiaofujiu_energy_vfx.tscn,�³���δ����ȷ����/����������
+- �ع���������VFX���ûָ���Ϸԭ��(uid://7y75kcsi1xdw+uid://dvsi8v1mbnt3q+res://scenes/vfx/energy/ironclad/*.tscn)��ɾ���½��Ŀ�VFX����
+- �ṹȷ��(���ս̳�)�����ڵ�Control+script(XiaofujiuEnergyCounter:NEnergyCounter)? EnergyVfxBack/Front=NParticlesContainer(������Ϸԭ��VFX����)? Layers/RotationLayers? Label=XiaofujiuMegaLabel:MegaLabel? ���Ͻ̳�Ҫ�������ٸ�
+- ���û����µ���pck��֤������+���ʲ���ʾ
+
+=== ����75 ���ʲ���ʾ�޸�+���ﵹ��ʱ ===
+- ���������VFX����ʧ��(Cannot get class+InvalidCast)�������º���(�û�ʵ��ʧ��ʱ������)��ֻ����NEnergyCounter._Ready���쳣�жϡ�BuildSalarySlot(���ʲ�)��ִ��
+- �޸�1��XiaofujiuEnergyCounter._Ready��try/catch��base._Ready()����֤BuildSalarySlot�������ִ�С����ʲ�(ͼ��salary.png+����)�����������½���ʾ
+- �޸�2��LuckyLandlordRelic.DisplayAmount�ӹ���_salary��Ϊ���⵹��ʱ_combatCount(0,1,2,3,��4��������)��CombatCount setter��InvokeDisplayAmountChangedˢ���������½�
+- ֻ��.cs(DLL�Զ�����Steam mods 23:49:39)�������ص�pck
+
+=== ����75-���� try/catch���º��� ===
+- ��ѵ��XiaofujiuEnergyCounter._Ready��try/catch�̵�base._Ready()��InvalidCast�쳣��������ı��˽ڵ��ʼ������/ռλ�����������û�ʵ�⣺VFXʧ��(ռλ��Control)�������������쳣�����
+- �������ָ�base._Ready()ԭ��(�벻����״̬��ȫһ��)�����ʲ�BuildSalarySlot�Ƶ�_Process�״�֡����(_buildAttempted��־)������_Ready�쳣�ж�Ӱ��
+- ���ﵹ��ʱ����(DisplayAmount=>_combatCount 0-3, CombatCount setter��InvokeDisplayAmountChanged)
+
+=== ����75-�ع�2 ����Ķ��������� ===
+- �û������Ժ�������ǰ�벻����״̬Ψһ����ֻʣ����Ķ�(DisplayAmount=>_combatCount + CombatCount setter��InvokeDisplayAmountChanged)
+- �ع���LuckyLandlordRelic��ȫ�ָ�(DisplayAmount=>_salary��ʾ����, �Ƴ�InvokeDisplayAmountChanged)������XiaofujiuEnergyCounter��_Process���ʲ۷���
+- ���û����ԣ����ָ�������������Ķ���Ԫ��(�ɷ����л�ʱInvokeDisplayAmountChanged����UIˢ��ʱ������)�����Ժ������ع�_Process����
+
+=== ����75-��ȫ���˵��������汾(23:43:01״̬) ===
+- �û������Ժ��������׻���XiaofujiuEnergyCounter: �Ƴ�_buildAttempted/_Process����/λ��΢��/using System, �ָ�_Ready=base._Ready()+BuildSalarySlot()ԭ��λ��
+- LuckyLandlordRelic�ѻع�(��ʾ����_salary)��������VFX������Ϸԭ��δ��
+- ��ǰ����=�û�ȷ�ϲ�����״̬�����ʲ�/����0-3�����ݻ������ȶ����о���ȫʵ��
+- ��ѵ: VFX����ʧ���쳣������,�κθĶ������ܵ��º���;�Ȼָ��ȶ�,�����𲽼ӻز�������֤
+
+=== ����76 ��������Ԫ��=new MegaLabel ===
+- ��֤(00:00:56��־+�û�ʵ��): VFXʧ��(Cannot get class+ռλ��+InvalidCast)��Ȼ���ڵ���������VFX�������ȫ�޹�
+- ����ʵ����: BuildSalarySlotһִ�оͺ���(try/catch��_Process��ʽ����),��ִ�оͲ��ڡ�Ԫ����BuildSalarySlot�ڲ�
+- ����Ԫ��: new MegaLabel()(��Ϸ���������ʱ����������); �̳�Ҳ��ʾ�ü̳������
+- �޸�: ���ʲ�label������ͨGodot Label(��׼theme���ַ���font/font_color/font_outline_color/outline_size/font_size, ������mega_text���), _Process�״�֡����(_buildAttempted); �Ƴ�SetTextAutoSize��Text
+- ����0-3����ʱ��ȷ�ϰ�ȫ(���߼�+InvokeDisplayAmountChanged)
+
+=== ����77 ����=����ս������(ͬ����Դ����) �� ���ʲ۸ľ�̬�����ڵ� ===
+- �û�������������: ���������Ϸ������ս������Ļ����+0.3��BGM����������Ӧ������Ⱦ����,�����߳̿���
+- ����Ԫ��: BuildSalarySlot��_Process(��Ⱦ֡)��ResourceLoader.Loadͬ��������Ϸ����kreon_bold_shared.tres(��pckͬ��)���������̡߳���������ǰ����Ϊnew MegaLabel(��ͨLabelҲ������ų�),ʵ����ͬ������
+- ����: ���ʲ�ȫ����Ϊ������̬�ڵ�(xiaofujiu_energy_counter.tscn��SalarySlot/Control + SalaryIcon/TextureRect + SalaryLabel/Label, texture=salary.png, LabelĬ�����岻����Ϸ��Դ),������ս��preload�׶δ���,������ʱ����/����
+- ����: XiaofujiuEnergyCounter.cs���򻯡���_Readyֻbase._Ready(), _Process��GetNodeOrNull��ȡ%SalaryLabel+����ˢ��Text,��BuildSalarySlot/PinToScreenLeft/��̬��Դ�ֶ�
+- ���ص�pck(��������)+DLL�Ѳ�������0-3����ʱ����
+
+=== ����78 ���ʲ�λ��+��������΢�� ===
+- ���ʲ�(SalarySlot)����������20: offset_left -6��-26, offset_top 76��96(���½�ͬ�����ֳߴ�)
+- ��������Label��С: font_size 36��30, MinFontSize 32��26, MaxFontSize 36��30
+- �������Ķ�,���ص�pck(����δ��,��dll�仯)
+
+=== ����79 �ֺŲ���Ч����=C#�������Ա�pck���� �� �������ֺ� ===
+- �û������ֺ�û�仯���Ų�: pck�ﳡ��(�����л�.scn��ʽ)��SalarySlot����MinFontSize/MaxFontSize��C#�ű�[Export]�����ڵ���pckʱ������(export_presets dotnet/include_scripts_content=false)
+- ���Ըĳ����ֺ���Ч,MegaLabelһֱ��Ĭ��Min=8/Max=100�Զ�������û������Ĵ��ֺ���Ĭ���߼����(Լ40)
+- �޸�: XiaofujiuMegaLabel._Ready������MinFontSize=14/MaxFontSize=20��base._Ready()���ı���������Max=20(ԼĬ�ϵĶ���֮һ), �����ֺ�ͬ��20���ֱ༭��Ԥ��һ��
+- ֻ��.cs(DLL�Ѳ���00:19:57),�����ص�pck��λ��(��������)����Ӱ������Ч
+
+=== ����80 �ֺŵ���30+��������������Ŵ�1.25x ===
+- �ֺ�: XiaofujiuMegaLabel Min 26/Max 30(�û���20̫С),����Labelͬ��30
+- ��������������Ŵ�1.25x(128��160): ���ڵ�offset160+pivot(80,80), VFX/Layer2/3����(64,64)��(80,80), ����Label offset 16��20/-29��-36, SalarySlot(-33,120,205,200), SalaryIcon 56��70, SalaryLabel�Ŵ�
+- .cs(DLL�Ѳ���00:22:09�ֺ������ɼ�)+����(���ص�pck)
+
+=== ����81 �������¼���BW֮ҹ + ���� ===
+- BW֮ҹ(BwNight,������Glory): ѡ���ĬĬ����������+200(��ȷ���Ƿ��200) �ڰ���ֱ����ɾ1��(CardSelectCmd+RemoveFromDeck) �����̡����޻�ҩˮ(PotionCmd.TryToProcure<GigantificationPotion>)
+- ����(LianJi,�ڶ���Hive): ��ũ�������-100+�����齱(GrantReward) ��ά���8���+ϡ�п���3ѡ1(CardReward+CardRarityOddsType.BossEncounter) �ۻԸ��ʧȥ100���+���սδ������(MysticLighter/ChemicalX;���������ϡ��RelicRarity.Rare) �ܲ����ɾ2��+����(Doubt)
+- ע��: Hive/Glory.AllEvents Postfix׷��; PullNextEvent patch:�����һ��=����,�����޵ƻ�Կ��(LanternKey)ʱ��һ��=BW֮ҹ(��Կ�ס�ԭ�߼�սʷѧ��,�Ƴ�Կ�׺�ˢ��BW֮ҹ)
+- ��SL: LuckyLandlordRelic��SavedProperty BwNightGiven/LianJiGiven
+- ����: images/events/bw_night.png/lianji.png(����ֱ��֮·); ���ػ�events.json��BW_NIGHT/LI AN_JI
+- DLL�Ѳ���;���ص�pck(��ͼƬ+���ػ�),Godot�༭�����ȵ�����png
+
+=== ����81-���� �������һ���ʺſ��� �� ģ��ֱ��֮·д�� ===
+- ����ԭ��: ֻpatch��PullNextEvent����LianJi,��ûǿ�Ʒ������͡������һ���ʺ�roll�ɷ��¼�����(ս����)���¼�ģ���뷿�����Ͳ�ƥ�������
+- �޸�: ģ��ֱ��֮·����д����RollRoomTypeFor_ActPatch(Postfix): ����/�����һ���ʺ�(Unknown+δ����)ǿ��ΪRoomType.Event ��PullNextEvent_ActPatch���������־+��̬����(_secondGiven/_thirdGiven)
+- �߼�: RollRoomTypeFor�ѵ�һ���ʺű��¼������PullNextEvent����LianJi/BwNight������ƥ����������
+- ����: �޵ƻ�Կ��ʱ��һ���ʺ�ǿ���¼���BW֮ҹ; ��Կ�ס�ԭ�߼�սʷѧ��,�Ƴ�Կ�׺�ˢ��BW֮ҹ
+- DLL�Ѳ���19:54:00,�ؿ���Ϸ����
+
+=== ����81-����2 ��������=����·���»��� ===
+- ��־19:55:13: No loader found for res://images/events/lian_ji.png + AssetLoadException �� �¼��������ʧ�ܡ��¼���������ʧ�ܡ�����
+- ԭ��: LianJi��Entry=LIAN_JI��Сдlian_ji(���»���)����Ϸ��images/events/lian_ji.png,��֮ǰ������lianji.png(���»���)
+- �޸�: ������lianji.png��lian_ji.png(��Godot�༭�����µ���+�ص�pck)
+- ��������: character_icon_xiaofujiu_outline.pngҲȱʧ(����ͼ�����,������)
+
+=== ����81-����3 ����ս��Ʒ��+�������� ===
+- ����: ���н������ѹ�ս��Ʒ��ʽ�����ȡ(���ʽ�������); ����/��Ҳ���100��Ӧѡ������
+- BwNight����: ���޻�ҩˮ��OfferCustom(PotionReward)ս��Ʒ
+- LianJiά��: 8���+ϡ�п���OfferCustom(GoldReward+CardReward)
+- LianJi�Ը�: ���<100����(��ʾ��Ҫ100���); ʧȥ100���+սδ�������OfferCustom(RelicReward)
+- LianJiũ��: ����<100����; ֧��100����+��תһ��(�ֳ�GrantReward)
+- LianJi����: ɾ2��+����ֱ��AddCurseToDeck(���䲻��ս��Ʒ������)
+- ����ʵ��: onChosen=null��IsLocked(ģ��GraveOfTheForgotten); ���ػ���NONGSHEN_LOCKED/HUIGE_LOCKED
+- DLL����20:04:28;���ص�pck(���ػ�)
+
+=== ����81-����4 ��תһ�θ����ֳ�SpinRewardս��Ʒ��ť ===
+- �û�����: �����ֳ�ս��Ʒ'��תһ��'��ť(SpinReward), ��Ҫֱ�ӵ�GrantReward
+- ũ��ѡ��: ֧��100���ʺ��RewardsCmd.OfferCustom([SpinReward])��ս��Ʒ�������'��תһ��'��ť����ҵ����SpinReward.OnSelect��GrantReward�齱
+- DLL����20:09:59
+
+=== ����81-����5 ����ѡ����ʽ���� ===
+- ����ѡ����ʾ: ����=ѡ����(��ũ������/�ͻԸ�����), ����=��Դ����(��Ҫ100����/��Ҫ100���)
+- ��ϷIsLocked�Զ���������ʽ: ��ɫ��+��͸��0.7+���ɵ��(SetVisuallyLocked)
+- �����ػ��Ķ�,���ص�pck
+
+=== ����82 �¹���: ����ս����һ���������˵���SC ===
+- patch CombatManager.SetUpCombat(Postfix): ÿ��ս����combatState.Enemies��һ������������ѡ14��֮һ��NSpeechBubbleVfx.Create+GetVfxContainer().AddChildSafely(��Ϸ����)
+- ʱ�����ı����ȼ���(max2.0, len*0.12, ģ��TalkCmd); Ӳ����14����������; Random.Shared���
+- ��.cs DLL����20:37:50,�����ص�pck
+
+=== ����83 ���SC����ָ�� fuhuangsc on/off ===
+- �½�src/utils/FuHuangScConsoleCmd.cs: AbstractConsoleCmd����(��ϷDevConsole�Զ�ɨ��mod����ע��), CmdName=fuhuangsc, ����on/off, DebugOnly=false; FuHuangScToggle.Enabled����Ĭ��true
+- SpeechPatch��Enabled���
+- �����޸�: �û��¼�src/patches/FugeDancePatch.cs(�������)��IsInstanceValid��̬��������(��ΪGodotObject.IsInstanceValid)���±������
+- DLL����20:40:12
+
+=== ����84 ��������δ��Ч�Ų� ===
+- ���SC: patchʧ��(XiaofujiuCompat��Patching exception)��ԭ��:Harmony Postfix������������ԭ����һ��,SetUpCombat(CombatState state)������state,��д��combatState��ע��ʧ�ܡ�patchûװ�ϡ��Ѹ�state��DLL����20:44:06,�ؿ���Ϸ��Ч
+- �������: ��־Cannot open res://animations/fuge_dance_frames.tres����Ŀ��frames.tres(20:41:26)��sheet.png����,��pck(20:41:37)ֻ��sheetû��frames.tres��Godot����ʱûɨ�赽��.tres������Godot�༭������Ŀ�ص�pck
+- ��ѵ: Harmony Postfix������������ԭ����һ��
+
+=== ����85 �޸�fuge_dance_frames.tres��ʽ����(��������) ===
+- ��������: Unrecognized UID + 495��Parse Error Expected ':' + Failed loading fuge_dance_frames.tres
+- ԭ��: ���������ɸ�.tresʱ��2�����Ŵ���ٿ�ͷ'frames': [{���һ��{(495��Expected ':')�ڽ�β֡121���һ��}(}],ӦΪ]),�������岻}1
+- �޸�: ɾ��ͷ����{�ͽ�β����}������ƽ��({=122 }=122,[=3]=3,���ƽ��0)
+- ��Godot�༭������Ŀ���¼���.tres+�ص�pck
+
+=== ����86 ����������¿�ͼ ===
+- ԭ��Ƶ: C:\Users\��Ԫ\Desktop\ģ�鿨Ƭ\�������.mp4(960x720,24fps,10s,241֡,�������ڱ�������Ļ)
+- ��sheet��ͼ��(��Ե��������); ��rembg u2net���¿�ͼ
+- ����: ffmpeg��ȡǰ121֡��rembg��ͼ�����в�502x720��ƴ8��sheet(4016x11520,������tresһ��,�����tres)
+- �ű�: build/redance_cutout.py; ��sheet���滻images/animations/fuge_dance_sheet.png
+- ��Godot�༭������Ŀ���µ���png+�ص�pck
+
+=== ����86-���� ������ʧ= fuge_dance_frames.tres�ֱ��������Ļ�bug ===
+- ��־21:40�Ա�495��Expected ':'���ļ����ⲿ�޸�(��������������)������ͬ��2��bug(��ͷ[{���{��β��}],��})
+- �ٴ��޸�������{=122 }=122ƽ���﷨��ȷ
+- ע��: ��������ÿ�����ɶ����{��}, �����ٵ���
+- ���ص�pck(��sheet+�޸�tres)
+
+=== ����86-2 ����������sheet���½ǲ��� ===
+- �û������������½��в�����rembg��ͼ���½ǲ���40������������(��ͨ����,���<3000��������x>60%y>75%����)
+- �ű�build/clear_corner_residue.py���40���ʣ��0,�������(���)����Ӱ��
+- ��Godot�༭�����µ���png+�ص�pck
+
+=== ����87 һ�����Ƶ���(19��) ===
+- ����δ��: �񵲸ĵ���(=�������2X/3X), ������
+- ���պ���: 2��, 3�غ��ڽ�ֹ����(NoMarryPower3��)
+- ���ƴ���һ��: �»غ϶��2��(Apply 2)
+- ͻ����: ����(Uncommon)
+- ս��֮ӥ: ��ͨ(Common)
+- �˶�: ����2/1
+- ��һʲô����: ÿ��ת����ڷ���-2
+- ��ͷ����: ȡ��ÿ�ŷ�׼��˺�
+- bվ����: ����3-4��
+- ����: ���ˡ�����
+- ��籬��: AOE���е���10�˺�(����15), ������ת������
+- ˫����: 11/15�˺�
+- Ļ�����: 6��+����3/4
+- ѹ��: 40/55�˺�
+- ���ɶ��: 0��, ����2/3��
+- ����: 0��, ��ʼ���
+- ŷ���: ���45/60
+- �ٿ�ң����: 1��, ��������(AddKeyword Innate)
+- ��Ϊ�����: 0��, ����4/6��
+- ���ػ�cards.jsonͬ������7������
+- �޸�: Sanpaidayuqieqie/Datouerzi/Tuiding��tab�ո������(��д)
+- DLL����23:31:56;���ص�pck(���ػ�)
+
+=== ����87-���� ��籬����̬�޷������˵����� ===
+- ԭ��: ��AllEnemies��,FufuBlackCardPlay.DetermineTarget��AllEnemies����null��ǿ�ƴ�����'��ҪĿ�굫�޷�ȷ��'��ֱ��return����
+- �޸�: DetermineTarget��AllEnemies���ص�һ��������(ռλĿ��),AOE����������TargetingAllOpponents��������Ŀ������̬��籬��ɱ����˵�����,���AOE�˺���ToggleFufuת��Ϊ���
+- DLL����23:45:30
+
+=== ����88 ���ڸİ� ===
+- ϡ�ж�: Common��Uncommon����
+- ����: 2��3��(����4, DrawCount��̬����3/4)
+- Ч��: ȥ��������������, ��Ϊѡ�������е�һ��ת��(FufuCmd.Toggle, �����/��׿�ѡ)
+- ����: ����-1��Ϊ������+1(3��4)
+- ���ػ���������+BAOHEI.selectPrompt
+- DLL����23:47:15;���ص�pck
+
+=== ����89 ����SC�İ� ===
+- ԭ: ��������������
+- ��: ���6���(����9, BlockVar 6/9), ��ò�ת�����ƶѵ�һ����(FromCombatPileѡ���ƶѡ�CardPileCmd.Add���֡�FufuCmd.Toggle)
+- ����: ����-1��Ϊ��+3(6��9)
+- ���ػ���������+WUSHISC.selectPrompt
+- DLL����23:49:52;���ص�pck
+
+=== ����90 װ�Ƹİ� ===
+- ԭ: 1�ѽ�����������,��������
+- ��: 3��ϡ��(Rare),����,����(Exhaust): ������Ļغ�(PlayerCmd.EndTurn,�ο������̬), �¸��غϵ��˱���ѣ(CreatureCmd.Stun,�ο������ƴ���Whistle)
+- Ŀ��: ����AnyEnemy(ѡһ��������)
+- ����: ����-1(3��2)
+- ���ػ���������
+- DLL����23:53:38;���ص�pck
+
+=== ����90-���� װ�Ƹ���ʱѣ�� ===
+- ����: ԭʵ��CreatureCmd.Stun����SetMoveImmediate�����õ�����һ����(���ֵ��˻غ�)�����־ͱ���, �û�Ҫ��������������
+- �޸�: �½�src/powers/ZhuangtangStunPower.cs(��ʱѣ��): Ӧ�ø�Ŀ�����,�ڵ���AfterSideTurnEnd(���غϽ���)ʱ��CreatureCmd.Stun���Ƴ�������ѣ����������һ��,���غϲ���Ӱ��
+- װ��OnPlay: Apply ZhuangtangStunPower + EndTurn
+- Power�����ռ�: PowerModel��Models, PowerType/StackType��Entities.Powers(��using��Ҫ)
+- DLL����00:00:53
+
+=== ����90-����2 װ�Ƹ�Ϊ�����������+ȫ��ѣ�� ===
+- ����: ��Power���ڵ�������(����Debuff)��ı������ͼ�� ���ޱ��ػ�
+- �޸�: ��ZhuangtangStunPower��Ϊ�����������(Buff): ��AfterPlayerTurnStart(��һغϿ�ʼ)ʱѣ�����д����˲��Ƴ����������ֵ��������ж�,��һ��ȫ������,����������ͼ�� �ڲ�powers.json���ػ�(ZHUANGTANG_STUN_POWER, �շ��ֹ���: SheHuaMarryCount��SHE_HUA_MARRY_COUNT, ����ZhuangtangStun��ZHUANGTANG_STUN_POWER)
+- ����: TargetType.AnyEnemy��None, OnPlay Apply��Owner.Creature(����Լ�), �Ƴ�target���; ���ػ�������'��һغϿ�ʼʱ,ѣ�����е���'
+- ����ö��: Owner.CombatState.Creatures.Where(c=>c.Side==CombatSide.Enemy && c.IsAlive)
+- DLL����00:08:47
+
+=== ����91 �޸�:��Ѵ�����ʿ��Կ۹��� ===
+- ����: ��Ϸҩˮ(SetToFreeThisTurn)/����Χ��(BrilliantScarf TryModifyStarCost)/���״̬���ʱ, SpendResources��Postfix���������۹���
+- �о�: ����(Regent)star���ơ������Ч��(ҩˮSetToFreeThisTurn��SetStarCostThisTurn(0))������ʱstar����=0; Χ��TryModifyStarCostȫ��hook��star���ø�0; ���ʿ���starʱGetStarCostWithModifiers()��������-1, ����Ѻ󷵻�0
+- �޸�(CardModel_SpendResources_Patch): ��GetStarCostWithModifiers()==0(����star���)�򲻿۹��� ��IsFufuBlack(�����״̬���)�򲻿۹���
+- ����: ҩˮ/Χ��/��/���˵����Ѵ��������, �����ִ��ʿ��տ�
+- ע��: �������ļ����build/Ŀ¼�ᱻcsproj��������Ƶ� %TEMP%sts2_decomp_full
+- DLL����00:20:28
+
+=== ����92 ���˷�������İ� ===
+- ����̶�350���ٳɳ�: ɾ��_rentStep, _rent=350, CanonicalVars Rent 350
+- ����Ƿ�����(Arrears SavedProperty+DynamicVars): ������ʱ����Ӧ��(����+�ۼ�Ƿ��)ȫ���ۻ�ΪǷ��+��һ��ծ��, �´�������һ������, ����������ۻ�
+- ������(������): ��ȫ��Ӧ��, Ƿ������, ս��Ʒ��תһ��(�İ������Ƿ񲹽�)
+- ��ħ��Լ: ȡ����������, ���ۿ��Ƿ��
+- relics.json��������(����̶�/�ۼ�Ƿ��); ���ص�pck
+- DLL����00:23:26
+
+=== 补充93 蛇花回血修复 + 打工人重做 + 夫黑说话调整 ===
+- 蛇花小姐征婚回血Bug修复: 查游戏CreatureCmd.GainMaxHp源码发现其内部自带 Heal(creature, 增加量) 自动回等量血
+  - SheHuaXiaoJieMonster.Upgrade() 原为 GainMaxHp(2)+Heal(2) 双重回血, 每次征婚实际回4血(3次=12, 与用户反馈一致)
+  - 删除显式Heal, 现 GainMaxHp(2) 单次回2血=2血/1征婚
+- 打工人Dagongren重做(移植哦牛批夫黑/固有/数值): 初始夫黑CanonicalFufuState=Black + 固有Innate + 伤害14 + 工资20; 升级仅伤害+5→19(工资固定20不成长); 仍在初始卡组
+- 哦牛批Oniupi: 保留(卡本体与奖池注册不动), 从初始卡组移出
+- 夫黑说话Fuheishuohua: 稀有度 Basic→Common(普通卡); 升级由减费改为格挡+3(6→9); 从初始卡组移出, 仅奖池可获取(开局不再自带)
+- 初始卡组: 打击 Strikexiaofujiu 3张→4张 (初始卡组现为 4打击+4防御+打工人+黑转白转黑=10张)
+- DLL部署22:04
+
+=== 补充94 哦牛批重做(X费用稀有攻击) ===
+- 参考征个未来的X机制(HasEnergyCostX + ResolveEnergyXValue): 稀有Rare X费用 攻击 初始夫白, 移除固有
+- 造成7点伤害X次(升级10点, Damage +3), X=投入能量数
+- 打出时按当前夫态附加(数量随X):
+  - 夫白: 给予X层虚弱 + X层易伤(PowerCmd.Apply WeakPower/VulnerablePower 到目标, 攻击后施加)
+  - 夫黑: 每段伤害额外+X(perHit = base + x)
+  - 夫黄: 获得X点力量(Apply StrengthPower 到自己; 夫黄重放1会再次触发)
+- ExtraHoverTips 补充虚弱/易伤/力量 hover说明(数量随X无法用PowerVar, 用HoverTipFactory.FromPower)
+- cards.json ONIUPI.description 更新(X次数+三态效果), 需重导pck
+- 哦牛批保留在奖池可获取(初始卡组仍无)
+- DLL部署23:46
+
+=== 补充95 X费用夫黑卡强制打出修复 ===
+- 现象: 哦牛批(重做后X费用卡)转黑后用夫黑说话/退订强制打出没效果, "像打不出"
+- 根因: 游戏X卡CapturedXValue只在正常付费流程SpendEnergy()赋值(PlayCardAction先SpendResources再OnPlayWrapper);
+  FufuBlackCardPlay直接调OnPlayWrapper跳过付费 → X恒为0 → OnPlay攻击0次 = 无效果(征个未来同受影响)
+- 修复: FufuBlackCardPlay.Play在OnPlayWrapper前检测 card.EnergyCost.CostsX, 是则先 await card.SpendResources()
+  (GetAmountToSpend对X卡=玩家当前全部能量 → X=当前能量并扣光, 符合X卡本质)
+- 效果: 哦牛批夫黑被强制打出 = 投入全部能量, X次(7+X)伤害; 征个未来也一并修复
+- 夫黑封印机制保持(非特例), 夫黑打出仍靠夫化/夫黑说话/退订/地狱狂夫
+- DLL部署23:54
+
+=== 补充95修订: X卡强制打出改为白嫖(不扣费) ===
+- 用户要求: 夫黑强制打出X卡不应真正扣费, 应白嫖
+- 修改: 去掉 await card.SpendResources()(会扣光能量), 改为直接 card.EnergyCost.CapturedXValue = card.Owner.PlayerCombatState.Energy (只赋值不扣费)
+- 效果: 哦牛批夫黑被夫黑说话/退订强制打出 = 免费不耗能, X=玩家当前能量, X次(7+X)伤害, 能量保留
+- DLL部署23:56
+
+=== 补充96 全部Power本地化与效果一致性检查 ===
+- 逐一核对32个Power代码与powers.json, 修复以下不一致:
+- ① 火堆零点五: powers.json写"恢复10生命", 代码/卡描述已改5(注释10→5) → 描述改5
+- ② 三牌大于一切: power smart写"多抽1张", 实际卡施加Amount=2 → 改{Amount}张
+- ③ 基米: power smart写"获得1点能量", 代码1×Amount → 改{Amount}点
+- ④ 晓夫九十连胜: power smart用{Threshold:diff()}(Power无此var) → 改用{Amount}(=实际阈值)
+- ⑤ 差偏认知: power desc用{MarryCount:diff()}但Power无var → 代码补CanonicalVars MarryCount并在AfterApplied同步, desc去diff
+- ⑥ 内马尔的欣慰: power smart用{Limit}但Power无var → 代码补CanonicalVars Limit并在AfterApplied同步(7/升级10)
+- ⑦ 叠加层数未体现: 别打扰夫哥/征婚者/黄皮夫才对/爆米 描述补{Amount}
+- 其余Power(28个)描述与效果一致或继承游戏基类自带文案
+- 存疑待用户确认: ①黄皮肤才对 卡title"黄皮夫才对" vs power title"黄皮肤才对" 名称不一 ②压抑形态多层=2^Amount倍(单层翻倍描述对) ③powers.json中DAGONGPOWER/NOMARRY_POWER为死条目 ④ChangkaoPower无desc(继承游戏敏捷)
+- powers.json需重导pck; DLL部署00:14
+
+=== 补充97 加班卡图更新 ===
+- 用 桌面\模组卡片\卡牌\加班.png 覆盖 images\packed\card_portraints\xiaofujiu\jiaban.png
+- 需Godot重导pck生效
+
+=== 工作目录迁移: 旧 e:\mymod\kyxiaofujiu → 新 E:\mymod\new\kyxiaofujiu ===
+- 之后所有开发在此目录进行
+
+=== 补充115 蛇花小姐位置左移 ===
+- she_hua_xiao_jie.tscn: Visuals (200,-150)→(80,-150), IntentPos/CenterPos同步-120
+- 需Godot重导pck
+
+=== 补充115修订: 蛇花位置改回原值 ===
+- 恢复 Visuals(200,-150)/IntentPos(206,-152)/CenterPos(208,-148), 撤销左移
+
+=== 补充116 三事件背景图迁移 ===
+- 从旧工程迁移覆盖: images/events/{bw_night,lian_ji,live_stream_road}.png (旧真图692-791KB, 新工程原为1539B占位)
+- 需Godot重导pck
+
+=== 补充117 新工程能力/遗物图标过大修复 ===
+- 新工程为旧工程早期副本: images/powers(31, 1024-2048大图)/relics(13)/power_atlas/relic_atlas均为未处理大图, 且缺装唐图标
+- 将旧工程已处理结果(补充101/102/105)整目录同步覆盖: powers(32, 256含zhuangtang_stun_power)、relics(256)、power_atlas.sprites(128+region)、relic_atlas.sprites(128+region), 含.import/.tres
+- 需Godot重导pck
+
+=== 补充118 格挡来源语义/夫的女儿时机/夫黄SC语音延迟 ===
+- ① 三十岁的男人: 征婚被动格挡 GainBlock ValueProp.Move → Unpowered(能力状态被动触发不吃敏捷; 原版规则: 卡打出Move吃敏捷/被动Unpowered不吃)
+- ② 夫的女儿: 卡 BlockVar Move → Unpowered(与FudenverPower实际发放的Unpowered一致, 修复卡面显示被敏捷放大但实际不吃的"骗人")
+- ③ 夫的女儿时机: AfterSideTurnEnd(灼伤之后) → BeforeSideTurnEndEarly(灼伤等回合结束手牌结算之前, 对齐金属化PlatingPower), 格挡先到手能挡灼伤; GainBlock 改纯 Unpowered
+- ④ 夫黄SC语音: SetUpCombat 立即播→ 延迟1秒(SpeakDelayed async, 敌死/无vfx静默跳过), 避免被战斗开场盖住

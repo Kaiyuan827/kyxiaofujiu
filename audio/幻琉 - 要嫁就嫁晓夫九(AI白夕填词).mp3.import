@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://wlu72xby4cll"
+path="res://.godot/imported/幻琉 - 要嫁就嫁晓夫九(AI白夕填词).mp3-39454d1471c9228ecaeabda5322bdc4d.mp3str"
+
+[deps]
+
+source_file="res://audio/幻琉 - 要嫁就嫁晓夫九(AI白夕填词).mp3"
+dest_files=["res://.godot/imported/幻琉 - 要嫁就嫁晓夫九(AI白夕填词).mp3-39454d1471c9228ecaeabda5322bdc4d.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

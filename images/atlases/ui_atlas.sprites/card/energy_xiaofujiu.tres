@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://d3d3l447hmcaf"]
+
+[ext_resource type="Texture2D" uid="uid://gwocycpnol8j" path="res://images/ui/energys/xiaofujiu_energy_icon.png" id="1_jsxfk"]
+
+[resource]
+atlas = ExtResource("1_jsxfk")
+region = Rect2(0.13876724, 0.14236641, 32.105976, 32.03663)

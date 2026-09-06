@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3 uid="uid://dfy5limpke0a"]
+
+[ext_resource type="Script" uid="uid://dhdnvwxl4oil2" path="res://src/CustomCreatureVisuals.cs" id="1_wkrq3"]
+[ext_resource type="SpriteFrames" uid="uid://c687x5eocsjsg" path="res://animations/xiaofujiu_anims.tres" id="2_wkrq3"]
+
+[node name="xiaofujiu" type="Node2D"]
+script = ExtResource("1_wkrq3")
+
+[node name="Visuals" type="Node2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(5, -150)
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visuals"]
+position = Vector2(-9, 1)
+scale = Vector2(1.1, 1.1)
+sprite_frames = ExtResource("2_wkrq3")
+animation = &"death"
+
+[node name="Bounds" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_left = -121.0
+offset_top = -278.0
+offset_right = 121.0
+mouse_filter = 2
+
+[node name="IntentPos" type="Marker2D" parent="."]
+unique_name_in_owner = true
+visible = false
+position = Vector2(30, -310)
+
+[node name="CenterPos" type="Marker2D" parent="."]
+unique_name_in_owner = true
+visible = false
+position = Vector2(4, -168)

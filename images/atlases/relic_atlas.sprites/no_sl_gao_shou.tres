@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://biqw7oof0b7du"]
+
+[ext_resource type="Texture2D" path="res://images/atlases/relic_atlas.sprites/no_sl_gao_shou.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 128, 128)

@@ -1,0 +1,11 @@
+{
+  "ZHENGHUN_POTION.description": "[gold]征婚[/gold][blue]3[/blue]。",
+  "ZHENGHUN_POTION.selectionScreenPrompt": "选择征婚药水的目标",
+  "ZHENGHUN_POTION.title": "征婚药水",
+  "SALARY_POTION.description": "获得[blue]50[/blue][gold]工资[/gold]。",
+  "SALARY_POTION.selectionScreenPrompt": "选择工资药水的目标",
+  "SALARY_POTION.title": "工资药水",
+  "FUFU_YELLOW_POTION.description": "选择你手牌中的一张牌，本场战斗中将其[gold]转化[/gold]为[gold]夫黄[/gold]。",
+  "FUFU_YELLOW_POTION.selectionScreenPrompt": "选择要转化为夫黄的牌",
+  "FUFU_YELLOW_POTION.title": "夫黄药水"
+}

@@ -1,0 +1,31 @@
+[gd_scene load_steps=3 format=3 uid="uid://cm2thomnbfbrp"]
+
+[ext_resource type="Script" uid="uid://dhdnvwxl4oil2" path="res://src/CustomCreatureVisuals.cs" id="1_cw6dj"]
+[ext_resource type="Texture2D" uid="uid://baacfi8s30ume" path="res://scenes/creature_visuals/di_fang_she_hua.png" id="2_mrjb0"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_cw6dj")
+
+[node name="Visuals" type="Node2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(200, -150)
+
+[node name="Sprite2D" type="Sprite2D" parent="Visuals"]
+texture = ExtResource("2_mrjb0")
+
+[node name="Bounds" type="Control" parent="Visuals"]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 0
+offset_left = -129.0
+offset_top = -126.0
+offset_right = 129.0
+offset_bottom = 126.0
+
+[node name="IntentPos" type="Marker2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(206, -152)
+
+[node name="CenterPos" type="Marker2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(208, -148)

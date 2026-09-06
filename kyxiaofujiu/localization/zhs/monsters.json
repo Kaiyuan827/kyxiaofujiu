@@ -1,0 +1,14 @@
+{
+  "SHE_HUA_XIAO_JIE_MONSTER.name": "蛇花小姐",
+
+  "BYGONE_EFFIGY.moves.SLEEP.speakLine1.XIAOFUJIU": "[red][sine]你的征婚，到此为止……[/sine][/red]",
+  "BYGONE_EFFIGY.moves.SLEEP.speakLine2.XIAOFUJIU": "那么，我们开一局吧？",
+
+  "BAO_QU.name": "豹区",
+  "BAO_QU.moves.BUFF_DEFEND_MOVE.title": "蓄势待发",
+  "BAO_QU.moves.MULTI_DEBUFF_MOVE.title": "蛇影连击",
+  "BAO_QU.moves.BIG_ATTACK_MOVE.title": "豹区碾压",
+
+  "ENEMY_SHE_HUA.name": "敌方蛇花",
+  "ENEMY_SHE_HUA.moves.MULTI_ATTACK_MOVE.title": "缠绕攻击"
+}

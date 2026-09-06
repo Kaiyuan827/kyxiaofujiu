@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://dobve8sfnpft2"]
+
+[ext_resource type="Texture2D" uid="uid://cxoldtsx6bydk" path="res://images/packed/card_portraints/xiaofujiu/baomi.png" id="1_7vvgc"]
+
+[resource]
+atlas = ExtResource("1_7vvgc")
+region = Rect2(-5.366333, 32.465515, 2213.9424, 1725.2043)

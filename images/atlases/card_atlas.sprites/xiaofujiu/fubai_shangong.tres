@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://bbgss4hw60o6c"]
+
+[ext_resource type="Texture2D" uid="uid://5e8vyacfofho" path="res://images/packed/card_portraints/xiaofujiu/fubai_shangong.png" id="1_6o8tk"]
+
+[resource]
+atlas = ExtResource("1_6o8tk")
+region = Rect2(0, 0, 2204.8237, 1762.9631)

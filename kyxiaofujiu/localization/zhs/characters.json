@@ -1,0 +1,17 @@
+{
+  "XIAOFUJIU.title": "晓夫九",
+  "XIAOFUJIU.description": "关注晓夫九，成为尖塔高手。",
+  "XIAOFUJIU.titleObject": "晓夫九",
+  "XIAOFUJIU.pronounObject": "他",
+  "XIAOFUJIU.possessiveAdjective": "他的",
+  "XIAOFUJIU.pronounPossessive": "他的",
+  "XIAOFUJIU.pronounSubject": "他",
+  "XIAOFUJIU.cardsModifierTitle": "晓夫九卡牌",
+  "XIAOFUJIU.cardsModifierDescription": "晓夫九的卡牌现在会出现在奖励和商店中。",
+  "XIAOFUJIU.cardPoolTitle": "晓夫九的卡组",
+  "XIAOFUJIU.eventDeathPrevention": "高塔沉睡了… 那么… 我也…",
+  "XIAOFUJIU.unlockText": "完成 {Prerequisite} 的条件后解锁。",
+  "XIAOFUJIU.goldMonologue": "[sine]这些财富能帮助我征婚……[/sine]",
+  "XIAOFUJIU.banter.alive.endTurnPing": "[sine]快点出牌……[/sine]",
+  "XIAOFUJIU.banter.dead.endTurnPing": "……"
+}

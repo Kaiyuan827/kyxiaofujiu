@@ -1,0 +1,51 @@
+{
+  "THE_ARCHITECT.talk.XIAOFUJIU.0-0.ancient": "压抑会降低你的智慧",
+  "THE_ARCHITECT.talk.XIAOFUJIU.0-0.next": "……",
+  "THE_ARCHITECT.talk.XIAOFUJIU.0-1.char": "我要成为尖塔高手！",
+  "THE_ARCHITECT.talk.XIAOFUJIU.0-1.next": "……",
+  "THE_ARCHITECT.talk.XIAOFUJIU.0-2.ancient": "哦牛批。",
+
+  "DARV.talk.XIAOFUJIU.0-0.ancient": "我这里还留着你昨天用过的纸呢！",
+  "DARV.talk.XIAOFUJIU.0-0.next": "询问",
+  "DARV.talk.XIAOFUJIU.0-1.char": "留辣个干什么？",
+  "DARV.talk.XIAOFUJIU.0-1.next": "继续",
+  "DARV.talk.XIAOFUJIU.0-2.ancient": "[jitter]我和它都是夫白啊！[/jitter]",
+
+  "NEOW.talk.XIAOFUJIU.0-0.ancient": "[sine]起来……继续……征婚……[/sine]",
+
+  "NONUPEIPE.talk.XIAOFUJIU.0-0.ancient": "哦，小家伙，你要向我征婚嘛？",
+  "NONUPEIPE.talk.XIAOFUJIU.0-0.next": "上前",
+  "NONUPEIPE.talk.XIAOFUJIU.0-1.char": "征婚上前！",
+  "NONUPEIPE.talk.XIAOFUJIU.0-1.next": "继续",
+  "NONUPEIPE.talk.XIAOFUJIU.0-2.ancient": "[sine]真可爱~来让姐姐亲一下❤[/sine]",
+
+  "OROBAS.talk.XIAOFUJIU.0-0.ancient": "你好！！新的朋友？！你好！！",
+  "OROBAS.talk.XIAOFUJIU.0-0.next": "发电",
+  "OROBAS.talk.XIAOFUJIU.0-1.char": "（展示小九九）",
+  "OROBAS.talk.XIAOFUJIU.0-1.next": "继续",
+  "OROBAS.talk.XIAOFUJIU.0-2.ancient": "[jitter]压抑的男人？！好可怕！！好可怕！！[/jitter]",
+
+  "PAEL.talk.XIAOFUJIU.0-0.ancient": "带上我的一部分吧，它可以变成任何形状。",
+  "PAEL.talk.XIAOFUJIU.0-0.next": "询问",
+  "PAEL.talk.XIAOFUJIU.0-1.char": "任何形状吗？",
+  "PAEL.talk.XIAOFUJIU.0-1.next": "继续",
+  "PAEL.talk.XIAOFUJIU.0-2.ancient": "额……你想做什么？",
+
+  "TANX.talk.XIAOFUJIU.0-0.ancient": "尖塔高手！与我一战！",
+  "TANX.talk.XIAOFUJIU.0-0.next": "战斗",
+  "TANX.talk.XIAOFUJIU.0-1.char": "（晓夫九从背后抱住了坦克斯）",
+  "TANX.talk.XIAOFUJIU.0-1.next": "继续",
+  "TANX.talk.XIAOFUJIU.0-2.ancient": "小九九也是武器？！[jitter]齁哦哦哦哦哦♥[/jitter]",
+
+  "TEZCATARA.talk.XIAOFUJIU.0-0.ancient": "你又来啦，要不要奶奶给你介绍对象呀？",
+  "TEZCATARA.talk.XIAOFUJIU.0-0.next": "期待",
+  "TEZCATARA.talk.XIAOFUJIU.0-1.char": "（性奋的眼神）",
+  "TEZCATARA.talk.XIAOFUJIU.0-1.next": "继续",
+  "TEZCATARA.talk.XIAOFUJIU.0-2.ancient": "你是不是想要[red]烧[/red]一点的？",
+
+  "VAKUU.talk.XIAOFUJIU.0-0.ancient": "结婚也是一种契约哦，快来签字吧！",
+  "VAKUU.talk.XIAOFUJIU.0-0.next": "仔细阅读",
+  "VAKUU.talk.XIAOFUJIU.0-1.char": "这不是劳务合同吗？每周007，自愿加班，无工资……",
+  "VAKUU.talk.XIAOFUJIU.0-1.next": "继续",
+  "VAKUU.talk.XIAOFUJIU.0-2.ancient": "哎呀，被发现啦……"
+}

@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://37owv41fv32u"]
+
+[ext_resource type="Texture2D" uid="uid://bwpr123bl78pj" path="res://images/packed/card_portraints/xiaofujiu/wushisc.png" id="1_bj33j"]
+
+[resource]
+atlas = ExtResource("1_bj33j")
+region = Rect2(0, 0, 1000, 760)

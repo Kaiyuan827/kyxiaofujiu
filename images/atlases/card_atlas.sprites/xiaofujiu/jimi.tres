@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://373i3ha7ye47"]
+
+[ext_resource type="Texture2D" uid="uid://wayaarimj0po" path="res://images/packed/card_portraints/xiaofujiu/jimi.png" id="1_oye8m"]
+
+[resource]
+atlas = ExtResource("1_oye8m")
+region = Rect2(0, 0, 486, 471)

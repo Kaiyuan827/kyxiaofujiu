@@ -1,0 +1,29 @@
+<Project Sdk="Godot.NET.Sdk/4.5.1">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <Target Name="CopyCustomOutput" AfterTargets="Build">  
+    <ItemGroup>  
+      <OutputDlls Include="$(OutputPath)\$(AssemblyName).dll" />  
+      <OutputDlls Include="$(OutputPath)\$(AssemblyName).pdb" />  
+    </ItemGroup>  
+      
+    <MakeDir Directories="$(MSBuildProjectDirectory)\build" />  
+    <Copy SourceFiles="@(OutputDlls)" DestinationFolder="$(MSBuildProjectDirectory)\build" />  
+    <Copy SourceFiles="@(OutputDlls)" DestinationFolder="E:\SteamLibrary\steamapps\common\Slay the Spire 2\mods" Condition="Exists('E:\SteamLibrary\steamapps\common\Slay the Spire 2\mods')" />  
+    <!-- pck 由用户手动导出管理，构建时不再自动复制，避免覆盖用户手动导出的最新 pck -->  
+</Target>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>libs\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="sts2">
+      <HintPath>libs\sts2.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

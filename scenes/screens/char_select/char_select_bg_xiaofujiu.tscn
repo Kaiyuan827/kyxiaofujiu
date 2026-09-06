@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://cat2iwerg82js"]
+
+[ext_resource type="Texture2D" uid="uid://byr43kmqp17sh" path="res://scenes/screens/char_select/yuzhoulengmo.png" id="1_07uml"]
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 402.0
+offset_top = 131.0
+offset_right = 2292.0
+offset_bottom = 1098.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_07uml")
+expand_mode = 1

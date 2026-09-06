@@ -1,0 +1,28 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# ===== VS / 构建产物 =====
+.vs/
+bin/
+obj/
+build/
+*.user
+*.suo
+
+# ===== 构建输出（AfterBuild 生成，不入库）=====
+*.pck
+*.dll
+
+# ===== 临时 / 备份 / 中间文件 =====
+backup/
+_anim_work/
+__pycache__/
+*.bak*
+*.broken*
+build_log.txt
+export_log.txt
+import_diff.txt
+
+# 注意：保留 .import 与 .uid（Godot 导入配置/UID 需要提交）
+
