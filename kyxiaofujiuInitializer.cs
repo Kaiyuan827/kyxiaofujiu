@@ -976,8 +976,11 @@ public static class LiveStreamFirstUnknownPatch
 			{
 				// fuhuangsc on/off 指令控制开关
 				if (!kyxiaofujiu.utils.FuHuangScToggle.Enabled) return;
-				// 只有第一个存活的怪物说
-				var enemy = state.Enemies.FirstOrDefault(c => !c.IsDead);
+				// 选择说夫黄SC的怪物：
+				// - 帝皇蟹（KaiserCrabBoss）战斗时，本体会出现在屏幕最左侧（碾碎爪 Crusher）。
+				//   为避免夫黄SC气泡显示在最左边，优先让右侧的火箭（Rocket）说话。
+				// - 其它战斗仍走原逻辑：第一个存活的怪物说。
+				var enemy = PickSpeaker(state);
 				if (enemy == null) return;
 				var text = _speechLines[System.Random.Shared.Next(_speechLines.Length)];
 				// 战斗开始后 1 秒再播，避免被开场/战斗开始提示盖住
@@ -987,6 +990,16 @@ public static class LiveStreamFirstUnknownPatch
 			{
 				Log.Error($"[CombatManager_SetUpCombat_SpeechPatch] 失败: {e.Message}");
 			}
+		}
+
+		// 选出夫黄SC的发言者：优先右侧火箭（帝皇蟹Boss），否则第一个存活怪物
+		private static MegaCrit.Sts2.Core.Entities.Creatures.Creature? PickSpeaker(MegaCrit.Sts2.Core.Combat.CombatState state)
+		{
+			// 帝皇蟹Boss的“火箭”在右侧，夫黄SC气泡贴在它的头顶不会压在屏幕最左
+			var rocket = state.Enemies.FirstOrDefault(c =>
+				!c.IsDead && c.Monster is MegaCrit.Sts2.Core.Models.Monsters.Rocket);
+			if (rocket != null) return rocket;
+			return state.Enemies.FirstOrDefault(c => !c.IsDead);
 		}
 
 		// 延迟 1 秒在敌人头顶弹出语音气泡（异步续体回主线程；敌人死亡/战斗结束时静默跳过）

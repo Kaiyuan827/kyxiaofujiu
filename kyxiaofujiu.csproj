@@ -5,17 +5,32 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
-  <Target Name="CopyCustomOutput" AfterTargets="Build">  
-    <ItemGroup>  
-      <OutputDlls Include="$(OutputPath)\$(AssemblyName).dll" />  
-      <OutputDlls Include="$(OutputPath)\$(AssemblyName).pdb" />  
-    </ItemGroup>  
-      
-    <MakeDir Directories="$(MSBuildProjectDirectory)\build" />  
-    <Copy SourceFiles="@(OutputDlls)" DestinationFolder="$(MSBuildProjectDirectory)\build" />  
-    <Copy SourceFiles="@(OutputDlls)" DestinationFolder="E:\SteamLibrary\steamapps\common\Slay the Spire 2\mods" Condition="Exists('E:\SteamLibrary\steamapps\common\Slay the Spire 2\mods')" />  
-    <!-- pck 由用户手动导出管理，构建时不再自动复制，避免覆盖用户手动导出的最新 pck -->  
-</Target>
+  <!--
+    游戏本地 mods 部署目录（各开发者机器路径不同，不允许硬编码在仓库里）。
+    默认留空 = 只输出到项目 build\，不自动部署到游戏（部署交给仓库旁的 build_kyxiaofujiu.ps1）。
+    需要“编译即部署”的开发者可三选一设置（优先级从高到低）：
+      1) 命令行：dotnet build -p:Sts2ModsDir="D:\...\mods"
+      2) 项目根目录下被 .gitignore 忽略的 Directory.Build.props：<Sts2ModsDir>...</Sts2ModsDir>
+      3) 环境变量：STS2_MODS_DIR
+  -->
+  <PropertyGroup>
+    <Sts2ModsDir Condition="'$(Sts2ModsDir)' == ''">$(STS2_MODS_DIR)</Sts2ModsDir>
+  </PropertyGroup>
+
+  <Target Name="CopyCustomOutput" AfterTargets="Build">
+    <ItemGroup>
+      <OutputDlls Include="$(OutputPath)\$(AssemblyName).dll" />
+      <OutputDlls Include="$(OutputPath)\$(AssemblyName).pdb" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(MSBuildProjectDirectory)\build" />
+    <Copy SourceFiles="@(OutputDlls)" DestinationFolder="$(MSBuildProjectDirectory)\build" />
+    <!-- 仅当开发机显式配置了 mods 目录且该目录存在时，才复制 DLL（默认不复制，避免机器间路径耦合） -->
+    <Copy SourceFiles="@(OutputDlls)"
+          DestinationFolder="$(Sts2ModsDir)"
+          Condition="'$(Sts2ModsDir)' != '' and Exists('$(Sts2ModsDir)')" />
+    <!-- pck 由用户手动导出管理，构建时不再自动复制，避免覆盖用户手动导出的最新 pck -->
+  </Target>
 
   <ItemGroup>
     <Reference Include="0Harmony">

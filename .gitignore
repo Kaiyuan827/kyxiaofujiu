@@ -41,5 +41,8 @@ Rider/
 *.zip
 .venv/
 
+# 各开发者本机的构建配置（如游戏 mods 部署路径），不入库
+Directory.Build.props
+
 # 注意：libs/*.dll 是本地 mod 引用库（0Harmony.dll / sts2.dll），不随仓库提交。
 #       克隆后需自行从本地游戏获取放入 libs/ 才能构建，详见 README“构建前置”。

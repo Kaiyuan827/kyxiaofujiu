@@ -72,8 +72,14 @@ namespace kyxiaofujiu.events
 		{
 			SetEventFinished(L10NLookup("LIAN_JI.pages.WEISHEN.description"));
 			if (Owner == null) return;
-			var options = CardCreationOptions.ForNonCombatWithUniformOdds(new CardPoolModel[] { Owner.Character.CardPool })
-				.WithRarityOdds(CardRarityOddsType.BossEncounter); // BossEncounter = 只出稀有卡
+			// 与副本 Boss 的稀有卡奖励一致：Source=Encounter + RarityOdds=BossEncounter。
+			// 这样 CardReward.IconPath 的第一分支（Encounter + BossEncounter）会命中稀有卡图标
+			// reward_icon_rare.png；否则回落到 reward_icon_card.png（普通卡牌图标），图标与奖励不符。
+			var options = new CardCreationOptions(
+					new CardPoolModel[] { Owner.Character.CardPool },
+					CardCreationSource.Encounter,
+					CardRarityOddsType.BossEncounter) // BossEncounter = 只出稀有卡
+				.WithFlags(CardCreationFlags.NoUpgradeRoll);
 			await RewardsCmd.OfferCustom(Owner, new List<Reward>
 			{
 				new GoldReward(8, Owner),
