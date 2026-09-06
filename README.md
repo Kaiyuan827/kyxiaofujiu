@@ -33,6 +33,8 @@ kyxiaofujiu/
 
    （本项目当前是手动把 DLL 放进本地 `libs/`，克隆前请先向维护者确认采用哪种。）
 
+   > 提示：`Directory.Build.props` 是**每台机器各自的本地文件**（已加入 `.gitignore`，不会误传）。它既能放编译期路径 `Sts2Path`，也能放下文“部署”里的 `Sts2ModsDir`；两者互不冲突。
+
 ### 编译
 
 ```bash
@@ -43,18 +45,58 @@ dotnet build
 
 ### 部署到游戏
 
-游戏的 mod 加载链路是：扫描 `mods/*.json` → 装载 **DLL + PCK** → 反射调用 `[ModInitializer]` → Harmony 注入 `ModelDb`。
+游戏的 mod 加载链路：扫描 `mods/*.json` → 装载 **DLL + PCK** → 反射调用 `[ModInitializer]` → Harmony 注入 `ModelDb`。
 
-因此每次改动要**同时更新两样**：
+一个可被游戏识别的 mod，就是**一个目录**，里面放三个文件：
 
-- 编译出的 `kyxiaofujiu.dll`
-- Godot 导出的资源包 `*.pck`
+```
+mods/kyxiaofujiu/
+├── manifest.json      # mod 元数据（id/name/author/version/has_pck/has_dll... 见 GAME_REFERENCE.md）
+├── kyxiaofujiu.dll
+└── kyxiaofujiu.pck
+```
 
-两者缺一或版本不一致，改动在游戏内不会生效（常被误以为代码没改）。
+每次改动要**同时更新 DLL 与 PCK**，缺一或版本不一致，改动在游戏内不会生效（这是本仓库最高频的“假 bug”）。
 
-`.csproj` 不硬编码任何机器路径：默认只把 DLL 输出到 `build\`。要“编译即部署到游戏 mods 目录”，用 MSBuild 属性 `Sts2ModsDir` 指定（优先级从高到低：`dotnet build -p:Sts2ModsDir="..."` > 项目根目录被 `.gitignore` 忽略的 `Directory.Build.props` > 环境变量 `STS2_MODS_DIR`）。
+**仓库不写死任何机器路径**——每个人的游戏安装路径不同，所以没有统一假设。构建产物默认只进 `build\`，具体部署到哪里、怎么部署由你按自己的机器来定。两种方式任选。
 
-更省事的方式：运行仓库上级目录的 `build_kyxiaofujiu.ps1`，一次性完成 `dotnet build` → Godot 导出 `*.pck` → 写入 `manifest.json` → 部署到本机游戏 `mods\kyxiaofujiu\`。脚本在仓库外，各开发者自行维护本机的 mods 路径与版本号。
+#### 方式 A：`dotnet build` 时自动复制 DLL（仅 DLL）
+
+`.csproj` 预留了 `Sts2ModsDir` 属性，表示“把 DLL 复制到哪个目录”。默认留空 = 不复制。要启用时三选一（优先级从高到低）：
+
+1. 命令行：
+   `dotnet build -p:Sts2ModsDir="<游戏安装目录>\mods\kyxiaofujiu"`
+2. 项目根目录放一个被 `.gitignore` 忽略的 `Directory.Build.props`：
+   ```xml
+   <Project>
+     <PropertyGroup>
+       <Sts2ModsDir><游戏安装目录>\mods\kyxiaofujiu</Sts2ModsDir>
+     </PropertyGroup>
+   </Project>
+   ```
+3. 设置环境变量 `STS2_MODS_DIR` 为上面的目录。
+
+> 注意：方式 A 只复制 DLL，**不含 PCK 与 manifest**，所以仍需手动补另外两个文件才算完整。
+
+#### 方式 B（推荐）：一键构建 + 部署脚本
+
+仓库上级目录的 `build_kyxiaofujiu.ps1` 会一次完成：
+`dotnet build` → Godot 导出 `*.pck` → 生成 `manifest.json` → 部署到本机游戏 `mods\kyxiaofujiu\`。
+
+脚本在仓库外（不入库）。每个开发者各自维护脚本开头的两处：
+
+- `$ModsDir`：你本机的游戏 `mods` 目录；
+- `$ModVersion`：语义化版本号，控制本地与在线 Workshop 版本的优先级（**本地应 ≥ 在线**，否则游戏优先加载在线版本）。
+
+用法：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File <仓库上级目录>\build_kyxiaofujiu.ps1
+```
+
+#### 让本地改动生效的关键
+
+本机同时存在“Steam 在线订阅版本”时，游戏会比较 `manifest.json` 里的 `version`。只有本地版本 ≥ 在线版本、或在游戏内禁用在线版本，本地改动才会被加载。因此**每次准备发布新版本前，把 `$ModVersion` / `manifest.json` 的 `version` 手动 +1**；而平时本地测试时也建议保持本地版本高于在线，避免被在线版本覆盖。
 
 ## 贡献
 
