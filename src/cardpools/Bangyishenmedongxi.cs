@@ -12,7 +12,7 @@ using kyxiaofujiu.core;
 namespace kyxiaofujiu.cardpools
 {
     /// <summary>
-    /// 榜一什么东西 — 攻击牌，每次夫黑转夫白费用-1
+    /// 榜一什么东西 — 攻击牌，每次夫黑转夫白，这张牌本场战斗耗能-2
     /// </summary>
     public sealed class Bangyishenmedongxi : XiaofujiuCardBase
     {
@@ -101,9 +101,14 @@ namespace kyxiaofujiu.cardpools
 
         private void OnFufuBlackConverted(CardModel card)
         {
-	            // 每次夫黑转为夫白，本场战斗费用-2
-	            MegaCrit.Sts2.Core.Logging.Log.Info($"[Bangyishenmedongxi] 收到夫黑→夫白转化: {card}, 夫态={FufuState}, 减费前费用={EnergyCost.GetResolved()}");
-	            EnergyCost.AddThisCombat(-2);
+            // 只对本场战斗中的卡牌实例减费：卡组（Deck）里的牌 CombatState 为 null，
+            // 也会订阅此静态事件，若同样减费，EndOfCombat 修饰符会跨战斗累积（卡组牌不会被清理），
+            // 导致费用变成“全局永久减费”而非“本场战斗减费”。这里直接跳过即可。
+            if (CombatState == null) return;
+
+            // 每次夫黑转为夫白，本场战斗费用-2
+            MegaCrit.Sts2.Core.Logging.Log.Info($"[Bangyishenmedongxi] 收到夫黑→夫白转化: {card}, 夫态={FufuState}, 减费前费用={EnergyCost.GetResolved()}");
+            EnergyCost.AddThisCombat(-2);
             MegaCrit.Sts2.Core.Logging.Log.Info($"[Bangyishenmedongxi] 减费后费用={EnergyCost.GetResolved()}");
         }
     }
