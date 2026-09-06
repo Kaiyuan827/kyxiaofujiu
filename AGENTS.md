@@ -47,6 +47,10 @@
 3. **不要误用 mod 自身的 `Seal()`**（定义于 `XiaofujiuCardBase.Seal()`，**不是游戏 API**）：在 `OnPlay` 里调用它会让夫白卡牌卡死在某形态 / 多段打出异常。
 4. **不要“自作聪明”改设计意图**：卡牌状态机（如 `CanonicalFufuState = White`）是刻意保持简洁的。改动前先看 `GAME_REFERENCE.md` 与 `dev_log.txt`，确认原设计意图再动手。
 5. **游戏路径差异**：`.csproj` 里复制 DLL 的目标路径（`E:\SteamLibrary\...\mods`）是开发机专属，仅当该路径存在才复制；不要依赖它作为其他机器可复现的部署方式。
+6. **`CardSelectorPrefs` 的“手动确认”由 min/max 决定**：`new CardSelectorPrefs(prompt, min, max)` 中 `RequireManualConfirmation = (min >= 0 && min != max)`。想让玩家“点卡即取”就传 `(prompt, 1)`（min==max）；若传 `(prompt, 0, 1)` 还需额外点一次“确定”（对应官方涅奥之怒），对单张选择很冗余。官方宇宙冷漠 `CosmicIndifference` 用 `(prompt, 1)`，参考实现。
+7. **卡组（Deck）里的牌也会收到 `BeforeCombatStart`/`AfterCombatEnd`**：`IterateHookListeners(combatState)` 会遍历 `player.Deck.Cards` + 战斗牌堆全部卡。若你在卡牌上订阅静态事件并对卡组牌做 `AddThisCombat(-n)`，`EndOfCombat` 修饰符会留在常驻的卡组牌上且无清理逻辑（游戏没有 `EndOfCombatCleanup`），费用会跨战斗越减越低，从“本场战斗”变成“全局永久”。减费前先 `if (CombatState == null) return;`，只对战斗中的实例操作（参考 `Bangyishenmedongxi`）。注意：战斗回合类钩子（如 `BeforeSideTurnEnd`）只遍历 `combatState.IterateHookListeners()`，不会到卡组牌。
+8. **事件/遗物给“稀有卡牌奖励”的图标**：`CardReward.IconPath` 仅在 `Source == CardCreationSource.Encounter && RarityOdds == CardRarityOddsType.BossEncounter` 时显示稀有卡图标（`reward_icon_rare.png`）。用 `ForNonCombatWithUniformOdds`（Source=Other）会回落到普通卡图标（`reward_icon_card.png`）。要稀有图标请直接 `new CardCreationOptions(cardPools, CardCreationSource.Encounter, CardRarityOddsType.BossEncounter)`（参考 Boss 奖励）。
+9. **多部位 Boss 的“第一个存活怪物”不一定是视觉左侧**：`state.Enemies.FirstOrDefault(c => !c.IsDead)` 可能命中左侧部位（如帝皇蟹的 Crusher）。需指定说话者时用类型/部位判断优先（如 `c.Monster is Rocket`），否则气泡会贴着屏幕最左（参考夫黄SC 的 `PickSpeaker`）。
 
 ## 参考文件
 
