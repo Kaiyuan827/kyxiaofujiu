@@ -36,7 +36,7 @@
 - 只提交必要源码 / 资源。**不要**提交：`build/`、`bin/`、`obj/`、`*.pck`、`*.dll`、`libs/`、`backup/`、`src_bak/`、`*.zip`、临时构建日志（如 `build_log.txt`、`export_log.txt`、`import_diff.txt`）、编辑器 / 系统杂项。
 - **必须提交** Godot 的 `.import` 与 `.uid` 文件（导入配置 / UID 需要入库），不要随意改动或删除。
 - 基于 `master` 开功能分支，走 PR 合并；不要直接推 `master`。
-- 小步提交，commit message 写清楚“为什么改”，而非只写“改了什么”。
+- **硬性规定：每次修改完成后必须小步本地提交**（改一处、提交一处，不要攒一堆改动再一次性提交）；commit message 写清楚“为什么改”，而非只写“改了什么”。
 
 > 例外：`dev_log.txt` 是刻意保留的“设计意图 + 踩坑”记录，属文档而非构建日志，可以且应当提交。
 
@@ -46,7 +46,7 @@
 2. **卡牌不参与 `IterateHookListeners` 迭代**：不要在卡牌上重写 `BeforeSideTurnEnd` 等战斗钩子，钩子不会分发到卡牌。卡牌回合末逻辑用 `HasTurnEndInHandEffect` / `OnTurnEndInHand` 方案。
 3. **不要误用 mod 自身的 `Seal()`**（定义于 `XiaofujiuCardBase.Seal()`，**不是游戏 API**）：在 `OnPlay` 里调用它会让夫白卡牌卡死在某形态 / 多段打出异常。
 4. **不要“自作聪明”改设计意图**：卡牌状态机（如 `CanonicalFufuState = White`）是刻意保持简洁的。改动前先看 `GAME_REFERENCE.md` 与 `dev_log.txt`，确认原设计意图再动手。
-5. **游戏路径差异 / mods 部署**：`.csproj` 不再硬编码任何机器路径。默认只把 DLL 输出到项目 `build\`；要“编译即部署到游戏 mods 目录”，用 MSBuild 属性 `Sts2ModsDir` 指定（优先级从高到低：`-p:Sts2ModsDir=...` > 项目根目录被 gitignore 的 `Directory.Build.props` > 环境变量 `STS2_MODS_DIR`）。不配也完全可用：直接跑仓库旁的 `build_kyxiaofujiu.ps1`，它会一次性编出 DLL + PCK + manifest 并部署到你本机的 mods 目录。不要依赖某个开发机专属的绝对路径作为可复现部署方式。
+5. **游戏路径差异 / mods 部署**：`.csproj` 不再硬编码任何机器路径。默认只把 DLL 输出到项目 `build\`；要“编译即部署到游戏 mods 目录”，用 MSBuild 属性 `Sts2ModsDir` 指定（优先级从高到低：`-p:Sts2ModsDir=...` > 项目根目录被 gitignore 的 `Directory.Build.props` > 环境变量 `STS2_MODS_DIR`）。不配也完全可用：直接跑仓库旁的 `build_kyxiaofujiu.ps1`，它会一次性编出 DLL + PCK + 清单（`kyxiaofujiu.json`，文件名须为 `<modid>.json`）并部署到你本机的 mods 目录。不要依赖某个开发机专属的绝对路径作为可复现部署方式。
 6. **`CardSelectorPrefs` 的“手动确认”由 min/max 决定**：`new CardSelectorPrefs(prompt, min, max)` 中 `RequireManualConfirmation = (min >= 0 && min != max)`。想让玩家“点卡即取”就传 `(prompt, 1)`（min==max）；若传 `(prompt, 0, 1)` 还需额外点一次“确定”（对应官方涅奥之怒），对单张选择很冗余。官方宇宙冷漠 `CosmicIndifference` 用 `(prompt, 1)`，参考实现。
 7. **卡组（Deck）里的牌也会收到 `BeforeCombatStart`/`AfterCombatEnd`**：`IterateHookListeners(combatState)` 会遍历 `player.Deck.Cards` + 战斗牌堆全部卡。若你在卡牌上订阅静态事件并对卡组牌做 `AddThisCombat(-n)`，`EndOfCombat` 修饰符会留在常驻的卡组牌上且无清理逻辑（游戏没有 `EndOfCombatCleanup`），费用会跨战斗越减越低，从“本场战斗”变成“全局永久”。减费前先 `if (CombatState == null) return;`，只对战斗中的实例操作（参考 `Bangyishenmedongxi`）。注意：战斗回合类钩子（如 `BeforeSideTurnEnd`）只遍历 `combatState.IterateHookListeners()`，不会到卡组牌。
 8. **事件/遗物给“稀有卡牌奖励”的图标**：`CardReward.IconPath` 仅在 `Source == CardCreationSource.Encounter && RarityOdds == CardRarityOddsType.BossEncounter` 时显示稀有卡图标（`reward_icon_rare.png`）。用 `ForNonCombatWithUniformOdds`（Source=Other）会回落到普通卡图标（`reward_icon_card.png`）。要稀有图标请直接 `new CardCreationOptions(cardPools, CardCreationSource.Encounter, CardRarityOddsType.BossEncounter)`（参考 Boss 奖励）。
@@ -59,4 +59,4 @@
 
 ## AI 一键构建 / 部署
 
-- 仓库上级目录的 `build_kyxiaofujiu.ps1`：`dotnet build` → Godot 导出 `.pck` → 写入 `manifest.json` 并部署到本机游戏 `mods\kyxiaofujiu\`。每个开发者各自维护脚本里的本机 `$ModsDir`，并用 `$ModVersion` 控制本地与在线 Workshop 版本的优先级（本地应 ≥ 在线，否则游戏优先加载在线版本）。该脚本在仓库外，不入库。
+- 仓库上级目录的 `build_kyxiaofujiu.ps1`：`dotnet build` → Godot 导出 `.pck` → 写入 `kyxiaofujiu.json`（商店清单元信息，文件名须为 `<modid>.json`）并部署到本机游戏 `mods\kyxiaofujiu\`。每个开发者各自维护脚本里的本机 `$ModsDir`，并用 `$ManifestVersion` 控制本地与在线 Workshop 版本的优先级（本地应 ≥ 在线，否则游戏优先加载在线版本）。该脚本在仓库外，不入库。

@@ -51,10 +51,12 @@ dotnet build
 
 ```
 mods/kyxiaofujiu/
-├── manifest.json      # mod 元数据（id/name/author/version/has_pck/has_dll... 见 GAME_REFERENCE.md）
+├── kyxiaofujiu.json   # mod 元数据（id/name/author/version/has_pck/has_dll/dependencies/affects_gameplay... 见 GAME_REFERENCE.md）
 ├── kyxiaofujiu.dll
 └── kyxiaofujiu.pck
 ```
+
+清单元文件必须命名为 **`<modid>.json`**（本 mod 即 `kyxiaofujiu.json`），与商店一致；游戏扫描 `mods/*.json`，文件名不对就无法被识别。若目录里残留旧的 `manifest.json`，会被当成另一个同名 mod 导致重复加载，部署脚本会自动清理。
 
 每次改动要**同时更新 DLL 与 PCK**，缺一或版本不一致，改动在游戏内不会生效（这是本仓库最高频的“假 bug”）。
 
@@ -81,12 +83,12 @@ mods/kyxiaofujiu/
 #### 方式 B（推荐）：一键构建 + 部署脚本
 
 仓库上级目录的 `build_kyxiaofujiu.ps1` 会一次完成：
-`dotnet build` → Godot 导出 `*.pck` → 生成 `manifest.json` → 部署到本机游戏 `mods\kyxiaofujiu\`。
+`dotnet build` → Godot 导出 `*.pck` → 生成 `kyxiaofujiu.json` → 部署到本机游戏 `mods\kyxiaofujiu\`。
 
 脚本在仓库外（不入库）。每个开发者各自维护脚本开头的两处：
 
 - `$ModsDir`：你本机的游戏 `mods` 目录；
-- `$ModVersion`：语义化版本号，控制本地与在线 Workshop 版本的优先级（**本地应 ≥ 在线**，否则游戏优先加载在线版本）。
+- `$ManifestVersion`：语义化版本号，控制本地与在线 Workshop 版本的优先级（**本地应 ≥ 在线**，否则游戏优先加载在线版本）。
 
 用法：
 
@@ -96,7 +98,21 @@ powershell -ExecutionPolicy Bypass -File <仓库上级目录>\build_kyxiaofujiu.
 
 #### 让本地改动生效的关键
 
-本机同时存在“Steam 在线订阅版本”时，游戏会比较 `manifest.json` 里的 `version`。只有本地版本 ≥ 在线版本、或在游戏内禁用在线版本，本地改动才会被加载。因此**每次准备发布新版本前，把 `$ModVersion` / `manifest.json` 的 `version` 手动 +1**；而平时本地测试时也建议保持本地版本高于在线，避免被在线版本覆盖。
+本机同时存在“Steam 在线订阅版本”时，游戏会比较 `kyxiaofujiu.json` 里的 `version`。只有本地版本 ≥ 在线版本、或在游戏内禁用在线版本，本地改动才会被加载。因此**每次准备发布新版本前，把 `$ManifestVersion` / `kyxiaofujiu.json` 的 `version` 手动 +1**；而平时本地测试时也建议保持本地版本高于在线，避免被在线版本覆盖。
+
+## 发布到 Steam 创意工坊（可选）
+
+构思工坊条目（AppID `2868840`，PublishedFileId `3796187683`）的更新同样走仓库外的本机脚本：
+
+- `workshop.vdf`：告诉 SteamCMD 上传哪些内容、更新哪个条目。其 `contentfolder` 指向**部署目录 `mods\kyxiaofujiu\`**，所以必须先跑一次 `build_kyxiaofujiu.ps1` 再上传。
+- `upload_workshop.ps1`：默认先跑构建部署（`-NoBuild` 可跳过），再用 SteamCMD `workshop_build_item` 更新条目。需要**发布者账号**登录（脚本不写死密码，steamcmd 会交互式询问）。`-DryRun` 只打印将执行的命令，不真正上传。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File <仓库上级目录>\upload_workshop.ps1            # 先构建再上传
+powershell -ExecutionPolicy Bypass -File <仓库上级目录>\upload_workshop.ps1 -DryRun     # 演练，不传
+```
+
+上传前请先**关闭游戏**（否则 `mods\kyxiaofujiu.dll` 被占用，构建/部署会失败）。游戏清单的 `name/author/description/affects_gameplay/dependencies` 必须与商店当前值保持一致，只改 `version`。
 
 ## 贡献
 
