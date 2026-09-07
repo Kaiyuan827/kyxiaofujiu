@@ -49,20 +49,11 @@ namespace kyxiaofujiu.events
 			return ModelDb.Relic<T>().HoverTips;
 		}
 
-		// 事件固定遗物：已拥有则不再重复发放（避免重复遗物），改为金币替代补偿
-		private async Task GiveRelicIfMissing<T>(int goldCompensation = 50) where T : RelicModel
-		{
-			if (base.Owner.Relics.OfType<T>().Any())
-				await PlayerCmd.GainGold(goldCompensation, base.Owner);
-			else
-				await RelicCmd.Obtain<T>(base.Owner);
-		}
-
 		private async Task ActTech()
 		{
 			SetEventFinished(L10NLookup("LIVE_STREAM_ROAD.pages.TECH.description"));
 			// 尖塔糕手 + 长考
-			await GiveRelicIfMissing<MyCustomRelic>();
+			await RelicCmd.Obtain<MyCustomRelic>(base.Owner);
 			// 用 CreateCard 创建带 owner 的卡（ModelDb.Card 的 canonical 无 owner，CardPileCmd.Add 会抛异常）
 			var changkao = base.Owner.RunState.CreateCard<Changkao>(base.Owner);
 			await CardPileCmd.Add(changkao, PileType.Deck);
@@ -71,13 +62,13 @@ namespace kyxiaofujiu.events
 		private async Task ActYayi()
 		{
 			SetEventFinished(L10NLookup("LIVE_STREAM_ROAD.pages.YAYI.description"));
-			await GiveRelicIfMissing<WeddingRing>();
+			await RelicCmd.Obtain<WeddingRing>(base.Owner);
 		}
 
 		private async Task ActYourself()
 		{
 			SetEventFinished(L10NLookup("LIVE_STREAM_ROAD.pages.YOURSELF.description"));
-			await GiveRelicIfMissing<KaRelic>();
+			await RelicCmd.Obtain<KaRelic>(base.Owner);
 		}
 	}
 }
