@@ -55,9 +55,6 @@ namespace kyxiaofujiu.monsters
 			if (side != CombatSide.Player) return;
 			if (Creature.IsDead || _marryCount <= 0) return;
 
-			var enemies = CombatState.Creatures.Where(c => c.Side == CombatSide.Enemy && c.IsAlive && c.IsHittable).ToList();
-			if (enemies.Count == 0) return;
-
 			// 追踪之蛇：蛇花小姐对所有敌人造成伤害（AOE）
 			bool aoe = Creature.PetOwner?.Creature.HasPower<ZhuizongzhishePower>() == true;
 
@@ -67,6 +64,13 @@ namespace kyxiaofujiu.monsters
 
 			for (int i = 0; i < 3; i++)
 			{
+				// 每段重算存活/可命中目标：前一段打死一个敌人后，后一段不再打已死目标，
+				// 避免"群怪中杀死一个 -> 后续段空放"（目标列表不能用循环外快照）。
+				var enemies = CombatState.Creatures
+					.Where(c => c.Side == CombatSide.Enemy && c.IsAlive && c.IsHittable)
+					.ToList();
+				if (enemies.Count == 0) break;
+
 				if (aoe)
 				{
 					foreach (var target in enemies)
