@@ -71,13 +71,15 @@ namespace kyxiaofujiu.monsters
 					.ToList();
 				if (enemies.Count == 0) break;
 
+				bool killed = false;
 				if (aoe)
 				{
 					foreach (var target in enemies)
 					{
 						// Move | Unpowered：保留攻击语义（可格挡），但不被识别为"强力攻击"，
 						// 荆棘（ThornsPower）的 IsPoweredAttack() 判定为 false，因此不会被反弹
-						await CreatureCmd.Damage(choiceContext, target, damage, ValueProp.Move | ValueProp.Unpowered, Creature, null, null);
+						var rs = await CreatureCmd.Damage(choiceContext, target, damage, ValueProp.Move | ValueProp.Unpowered, Creature, null, null);
+						killed |= rs.Any(r => r.WasTargetKilled);
 					}
 				}
 				else
@@ -89,7 +91,18 @@ namespace kyxiaofujiu.monsters
 					{
 						target = enemies[rng.NextInt(0, enemies.Count)];
 					}
-					await CreatureCmd.Damage(choiceContext, target, damage, ValueProp.Move | ValueProp.Unpowered, Creature, null, null);
+					var rs = await CreatureCmd.Damage(choiceContext, target, damage, ValueProp.Move | ValueProp.Unpowered, Creature, null, null);
+					killed |= rs.Any(r => r.WasTargetKilled);
+				}
+
+				// 本段击杀（如异蛙寄生虫被炸死并召唤小寄生虫）后，给"死亡动画 + 召唤"留出时间，
+				// 让"第一击→死亡爆炸→小寄生虫出现→再打第二/三击"有节奏，避免三段连续打出显得一次性放完。
+				if (i < 2)
+				{
+					if (killed)
+						await Cmd.CustomScaledWait(0.4f, 0.65f);
+					else
+						await Cmd.CustomScaledWait(0.15f, 0.25f);
 				}
 			}
 		}
