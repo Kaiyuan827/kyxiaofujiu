@@ -267,8 +267,12 @@ namespace kyxiaofujiu.relicpools
 
 			if (roll <= 184) // 18.4% 随机遗物（仅限本角色遗物池；空奖16%取消后均分）
 			{
+				// 去除已拥有项，避免发放重复遗物；若全部非 Starter/Event 遗物均已拥有，
+				// 则兜底改为 100 金币（不出现"无"空奖）。
+				var ownedKeys = player.Relics.Select(r => r.Id.Entry).ToHashSet();
 				var relics = player.Character.RelicPool.AllRelics
-					.Where(r => r.Rarity != RelicRarity.Starter && r.Rarity != RelicRarity.Event)
+					.Where(r => r.Rarity != RelicRarity.Starter && r.Rarity != RelicRarity.Event
+						&& !ownedKeys.Contains(r.Id.Entry))
 					.ToList();
 				var relic = rng.NextItem(relics);
 				if (relic != null)
@@ -279,7 +283,9 @@ namespace kyxiaofujiu.relicpools
 				}
 				else
 				{
-					LastRewardText = "无";
+					await PlayerCmd.GainGold(100m, player);
+					LastRewardText = "100金币（遗物已集齐）";
+					ShowBubble("房东很满意！遗物已集齐，送你100金币！");
 				}
 			}
 			else if (roll <= 398) // 21.4% 100金币
