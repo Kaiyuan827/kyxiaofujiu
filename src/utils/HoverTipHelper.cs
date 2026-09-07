@@ -6,10 +6,16 @@ namespace kyxiaofujiu.utils
 {
 	public static class HoverTipHelper
 	{
-		// ===== 征婚机制 =====
+		// ===== 征婚机制（拆分为「征婚」+「借用」两条词条） =====
 		private static readonly LocString _marriageTitle = new LocString("cards", "MARRIAGE_MECHANICS_TITLE");
 		private static readonly LocString _marriageDesc = new LocString("cards", "MARRIAGE_MECHANICS_DESC");
-		public static IEnumerable<IHoverTip> MarriageTips => new IHoverTip[] { new HoverTip(_marriageTitle, _marriageDesc) };
+		private static readonly LocString _marriageBorrowTitle = new LocString("cards", "MARRIAGE_BORROW_MECHANICS_TITLE");
+		private static readonly LocString _marriageBorrowDesc = new LocString("cards", "MARRIAGE_BORROW_MECHANICS_DESC");
+		public static IEnumerable<IHoverTip> MarriageTips => new IHoverTip[]
+		{
+			new HoverTip(_marriageTitle, _marriageDesc),
+			new HoverTip(_marriageBorrowTitle, _marriageBorrowDesc)
+		};
 
 		// ===== 打工状态 =====
 		private static readonly LocString _dagongTitle = new LocString("cards", "DAGONG_MECHANICS_TITLE");

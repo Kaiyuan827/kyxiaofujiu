@@ -63,7 +63,7 @@
   "FUDENVER_POWER.smartDescription": "回合结束时，若你的[gold]手牌[/gold]中有[gold]夫黑[/gold]，获得[blue]{Amount}[/blue]点[gold]格挡[/gold]。",
 
   "SL_BAI_LIAN_POWER.title": "SL百连",
-  "SL_BAI_LIAN_POWER.smartDescription": "生命值不高于[blue]{Amount}[/blue]时，回复全部生命，将该阈值-[blue]10[/blue]，召唤一只敌方[gold]蛇花小姐[/gold]。",
+  "SL_BAI_LIAN_POWER.smartDescription": "生命值不高于[blue]{Amount}[/blue]时，回复全部生命，将该阈值-[blue]10[/blue]，召唤一只立即具有[red]攻击意图[/red]的敌方[gold]蛇花小姐[/gold]。",
 
   "DAMPEN_POWER.banter.XIAOFUJIU": "和你的小九九说再见吧！",
 
@@ -77,7 +77,7 @@
   "BUWEINIERERSI_POWER.smartDescription": "[gold]征婚[/gold]不再失去生命。\n[gold]蛇花小姐[/gold]不再为你承受伤害。",
 
   "SHE_HUA_MARRY_COUNT_POWER.title": "蛇花小姐",
-  "SHE_HUA_MARRY_COUNT_POWER.description": "[gold]蛇花小姐[/gold]优先承受未格挡的攻击伤害。\n回合结束时，她会随机对敌人造成[blue]3[/blue]次等同于[gold]征婚值[/gold]的攻击伤害。",
+  "SHE_HUA_MARRY_COUNT_POWER.description": "[gold]蛇花小姐[/gold]优先承受未格挡的攻击伤害。\n回合结束时，她会随机对敌人造成[blue]3[/blue]次等同于[gold]征婚值[/gold]的攻击伤害。（受力量影响）",
 
 
   "TOUZI_POWER.title": "投资",
@@ -102,7 +102,7 @@
   "BAOQU_DEATH_MERCY_POWER.smartDescription": "豹区战斗中，即将死亡时回复满血并询问是否接受死亡。",
 
   "BAOQU_DEATH_ASK.title": "是否接受死亡？",
-  "BAOQU_DEATH_ASK.body": "你已穷途末路。是否接受死亡？\n若选择“否”，将返回主菜单，可重新挑战豹区。",
-  "BAOQU_DEATH_ASK.yes": "是（接受死亡）",
-  "BAOQU_DEATH_ASK.no": "否（回到主菜单）"
+  "BAOQU_DEATH_ASK.body": "你已穷途末路。\n选择【回到主菜单】将返回主菜单，可重新挑战豹区；选择【接受死亡】则接受死亡结局。",
+  "BAOQU_DEATH_ASK.yes": "接受死亡",
+  "BAOQU_DEATH_ASK.no": "回到主菜单"
 }

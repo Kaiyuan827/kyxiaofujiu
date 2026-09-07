@@ -19,8 +19,8 @@ namespace kyxiaofujiu.powers
 	/// <summary>
 	/// 豹区（BaoQu）Boss 战的死亡豁免（隐藏，不显示图标）：
 	/// 玩家即将被打死时阻止死亡、回复满血，并弹窗询问"是否接受死亡？"
-	/// - 选"是"：对自己造成满血伤害 → 真正死亡（走正常死亡流程）
-	/// - 选"否"：回到主菜单（等同暂停菜单"保存并退出"，再进游戏可重新打豹区）
+	/// - 绿色按钮【回到主菜单】：存档退出、可读档重打豹区（安全 SL）
+	/// - 红色按钮【接受死亡】：对自己造成满血伤害 → 真正死亡（走正常死亡流程）
 	/// </summary>
 	public sealed class BaoQuDeathMercyPower : PowerModel
 	{
@@ -61,19 +61,21 @@ namespace kyxiaofujiu.powers
 				}
 
 				// 弹出"是否接受死亡？"确认框（模态，等待玩家选择）
-				bool acceptDeath = await AskAcceptDeathAsync();
+				// 注意按钮颜色语义：绿色=回到主菜单（安全 SL），红色=接受死亡（投降）。
+				// 官方 NVerticalPopup 的 Yes 位=绿、No 位=红，WaitForConfirmation 返回 true=按了绿色。
+				bool safeSl = await AskAcceptDeathAsync();
 
 				// 当前仍处于 Kill 递归链中，不能在此直接自杀/切场景；
 				// 先把选择结果交给独立异步任务，等本结算链结束后执行。
-				if (acceptDeath)
+				if (safeSl)
 				{
-					// 选"是"：接受死亡 → 对自己造成满血伤害（走正常死亡流程）
-					_ = TaskHelper.RunSafely(ExecuteAcceptedDeathAsync(creature));
+					// 绿色（回到主菜单）：返回主菜单（等同暂停菜单"保存并退出"，可读档重打豹区）
+					_ = TaskHelper.RunSafely(QuitToMainMenuAsync());
 				}
 				else
 				{
-					// 选"否"：回到主菜单（等同暂停菜单"保存并退出"，可读档重打豹区）
-					_ = TaskHelper.RunSafely(QuitToMainMenuAsync());
+					// 红色（接受死亡）：对自己造成满血伤害（走正常死亡流程）
+					_ = TaskHelper.RunSafely(ExecuteAcceptedDeathAsync(creature));
 				}
 			}
 			catch (Exception e)
@@ -119,7 +121,7 @@ namespace kyxiaofujiu.powers
 
 		/// <summary>
 		/// 弹出一个"是否接受死亡？"的是/否确认框。
-		/// 返回 true = 接受死亡；false = 拒绝（回主菜单）。
+		/// 返回 true = 按了绿色（回到主菜单/安全 SL）；false = 按了红色（接受死亡）。
 		/// 任何异常/无法弹窗时按"接受死亡"兜底，避免玩家永不死/战斗卡死。
 		/// </summary>
 		private static async Task<bool> AskAcceptDeathAsync()
@@ -136,8 +138,9 @@ namespace kyxiaofujiu.powers
 				return await popup.WaitForConfirmation(
 					new LocString("powers", "BAOQU_DEATH_ASK.body"),
 					new LocString("powers", "BAOQU_DEATH_ASK.title"),
-					new LocString("powers", "BAOQU_DEATH_ASK.no"),
-					new LocString("powers", "BAOQU_DEATH_ASK.yes"));
+					// 红按钮（No 位）= 接受死亡；绿按钮（Yes 位）= 回到主菜单（安全 SL）
+					new LocString("powers", "BAOQU_DEATH_ASK.yes"),
+					new LocString("powers", "BAOQU_DEATH_ASK.no"));
 			}
 			catch (Exception e)
 			{

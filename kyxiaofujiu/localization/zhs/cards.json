@@ -11,7 +11,9 @@
   "FUHEI_PLAY_MECHANICS_DESC": "无视[gold]不能被打出[/gold]，强制打出1张[gold]夫黑[/gold]。",
 
   "MARRIAGE_MECHANICS_TITLE": "征婚",
-  "MARRIAGE_MECHANICS_DESC": "征婚时，若你的[gold]蛇花小姐[/gold]不在场上，召唤她辅助你攻击敌人。\n每[gold]征婚[/gold][blue]1[/blue]：她获得[blue]1[/blue][gold]征婚值[/gold]（该值与她的攻击伤害相关），然后你失去[blue]2[/blue]点生命（不会使你的生命值低于[blue]1[/blue]），她获得等量最大生命值。\n战斗结束时，你回复等同于她当前生命的生命值。",
+  "MARRIAGE_MECHANICS_DESC": "征婚时，若你的[gold]蛇花小姐[/gold]不在场上，召唤她辅助你攻击敌人。\n每[gold]征婚[/gold][blue]1[/blue]：她获得[blue]1[/blue][gold]征婚值[/gold]，然后你向她[gold]借用[/gold][blue]2[/blue]点生命。\n[gold]征婚值[/gold]会提高[gold]蛇花小姐[/gold]的攻击伤害。",
+  "MARRIAGE_BORROW_MECHANICS_TITLE": "借用",
+  "MARRIAGE_BORROW_MECHANICS_DESC": "你失去生命值使[gold]蛇花小姐[/gold]获得等量最大生命值。[gold]借用[/gold]不会使你的生命值低于[blue]1[/blue]。\n战斗结束时，你回复等同于她当前生命的生命值。",
 
   "SALARY_MECHANICS_TITLE": "工资",
   "SALARY_MECHANICS_DESC": "可用于交房租以及打出某些带工资消耗的卡牌。",
