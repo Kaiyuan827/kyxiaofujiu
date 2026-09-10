@@ -41,6 +41,9 @@ Rider/
 *.zip
 .venv/
 
+# ===== 编译、部署等脚本 =====
+/scripts
+
 # 各开发者本机的构建配置（如游戏 mods 部署路径），不入库
 Directory.Build.props
 
