@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Cards;
@@ -34,6 +35,11 @@ namespace kyxiaofujiu.powers
 		/// </summary>
 		public static bool RetainDrawnAtCombatEnd;
 
+		// 抽牌串行锁：DrawInternal 本身会按 MaxCardsInHand=10 逐张封顶，但若同一次结算内有多次夫黑→夫白
+		// 转化并发跑 Draw（fire-and-forget 异步），多个 Draw 会读到过期手牌数而叠加突破上限（偶发 11 张）。
+		// 用全局信号量把抽牌串行化，确保一次只有一个 Draw 在跑、能读到最新手牌数。
+		private static readonly SemaphoreSlim _drawLock = new SemaphoreSlim(1, 1);
+
 		/// <summary>
 		/// 由 XiaofujiuCardBase.NotifyOwnerPowers 调用（夫黑→夫白转化时）。
 		/// 走"生物上的 Power 钩子"而非静态事件订阅——战斗结束游戏用
@@ -55,15 +61,24 @@ namespace kyxiaofujiu.powers
 
 		private async Task DrawCards()
 		{
-			var drawn = (await CardPileCmd.Draw(new ThrowingPlayerChoiceContext(), Amount, Owner.Player)).ToList();
-
-			// 回合结束阶段抽的牌给保留（本回合结束不弃，下回合继续在手牌）
-			if (RetainDrawnAtCombatEnd)
+			await _drawLock.WaitAsync();
+			try
 			{
-				foreach (var c in drawn)
+				if (Owner == null || Owner.IsDead) return;
+				var drawn = (await CardPileCmd.Draw(new ThrowingPlayerChoiceContext(), Amount, Owner.Player)).ToList();
+
+				// 回合结束阶段抽的牌给保留（本回合结束不弃，下回合继续在手牌）
+				if (RetainDrawnAtCombatEnd)
 				{
-					c.GiveSingleTurnRetain();
+					foreach (var c in drawn)
+					{
+						c.GiveSingleTurnRetain();
+					}
 				}
+			}
+			finally
+			{
+				_drawLock.Release();
 			}
 		}
 
