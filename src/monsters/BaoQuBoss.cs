@@ -15,7 +15,10 @@ namespace kyxiaofujiu.monsters
 		// 使用遭遇场景中的 Marker2D 槽位（boss 中央，snake1~5 分布四周）
 		public override bool HasScene => true;
 
-		public override IReadOnlyList<string> Slots => new[] { "boss", "snake1", "snake2", "snake3", "snake4", "snake5" };
+		// 敌方行动顺序 = Slots 下标顺序（SortEnemiesBySlotName 按此重排）。
+		// 把 boss 放到最后：让敌方蛇花（snake1..5）先攻、Boss 最后攻，
+		// 避免"易伤回合 Boss 先手挂易伤 -> 蛇花后手伤害被放大成 12*3"造成意图(回合初已显示 8*3)不一致。
+		public override IReadOnlyList<string> Slots => new[] { "snake1", "snake2", "snake3", "snake4", "snake5", "boss" };
 
 		public override string BossNodePath => "res://images/map/placeholder/" + base.Id.Entry.ToLowerInvariant() + "_icon";
 
